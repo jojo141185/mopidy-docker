@@ -4,9 +4,15 @@ on:
   push:
     branches:
       - 'main'
+    paths:
+      - README.md
+      - .github/workflows/sync-description.yml
   pull_request:
     branches:
       - 'main'
+    paths:
+      - README.md
+      - .github/workflows/sync-description.yml
   #schedule:
   #  - cron: '0 12 * * *' # everyday at 12am
 
@@ -28,11 +34,11 @@ jobs:
           uses: actions/checkout@v3
 
         - name: Docker Hub README & description sync
-          uses: bemble/sync-readme@v1.0.0
+          uses: peter-evans/dockerhub-description@v3
           with:
-            user: ${{ secrets.DOCKERHUB_USERNAME }}
-            pass: ${{ secrets.DOCKERHUB_PASSWORD }}
-            slug: ${{ secrets.DOCKERHUB_USERNAME }}/mopidy
-            readme: ./README.md
-            description: Mopidy music server with Iris Web-UI, Spotify support and many other extensions.
+            username: ${{ secrets.DOCKERHUB_USERNAME }}
+            password: ${{ secrets.DOCKERHUB_PASSWORD }}
+            repository: ${{ secrets.DOCKERHUB_USERNAME }}/mopidy
+            readme-filepath: ./README.md
+            short-description: Mopidy music server with Iris Web-UI, Spotify support and many other extensions.
 
