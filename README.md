@@ -45,7 +45,7 @@ Start mopidy from the directory where your mopidy config file (mopidy.conf) is p
         -v "$PWD/local:/var/lib/mopidy/local" \
         -v "$PWD/mopidy.conf:/config/mopidy.conf" \
         -p 6600:6600 -p 6680:6680 \
-        jojo141185/mopidy
+        jojo141185/mopidy:edge
 
 
 The following table describes the docker arguments and environment variables:
@@ -57,10 +57,13 @@ ARGUMENT|DEFAULT|DESCRIPTION
 -v | $PWD:/var/lib/mopidy/local | (optional) Cange $PWD path to directory to store local metadata, libraries and playlists.
 -p | 6600:6600 | (optional) Exposes MPD server to port 6600 on host (if you use for example ncmpcpp client).
 -p | 6680:6680 | (optional) Exposes HTTP server to port 6680 on host (if you use your browser as client).
--p | 5555:5555/udp | (optional) Exposes UDP streaming on port 5555 for FIFE sink (e.g. for visualizers).
+-p | 5555:5555/udp | (optional) Exposes UDP streaming on port 5555 for fifo sink (e.g. for visualizers).
 -e | PIP_PACKAGES | (optional) Environment variable to inject some pip packages and mopidy extensions (i.e. Mopidy-Tidal) on upstart of container .
     
-Note: If you have issues, try first as --user root.
+Note: 
+- If you have issues, try first as --user root.
+- On problems accessing the web interface, check in mopidy.conf that you are using the correct IP address. Try "hostname: 0.0.0.0" to listen to any. 
+
 ## Build
 
 You can build (or rebuild) the image by opening a terminal from the root of the repository and issuing the following command:
