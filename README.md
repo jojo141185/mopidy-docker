@@ -46,7 +46,7 @@ Start mopidy from the directory where your mopidy config file (mopidy.conf) is p
         -v "$PWD/media:/var/lib/mopidy/media:ro" \
         -v "$PWD/local:/var/lib/mopidy/local" \
         -p 6600:6600 -p 6680:6680 \
-        jojo141185/mopidy
+        jojo141185/mopidy:edge
 
 
 The following table describes the docker arguments and environment variables:
