@@ -1,8 +1,11 @@
-FROM rust:slim-bullseye
+# --- Build Node ---
+FROM rust:slim-bullseye AS Builder
 LABEL org.opencontainers.image.authors="https://github.com/seppi91"
 ARG TARGETPLATFORM
 ARG TARGETARCH
 ARG TARGETVARIANT
+
+# Print Info about current build Target
 RUN printf "I'm building for TARGETPLATFORM=${TARGETPLATFORM}" \
     && printf ", TARGETARCH=${TARGETARCH}" \
     && printf ", TARGETVARIANT=${TARGETVARIANT} \n" \
@@ -13,99 +16,105 @@ RUN printf "I'm building for TARGETPLATFORM=${TARGETPLATFORM}" \
 USER root
 
 # Install all libraries and needs
-RUN apt-get update \
- && apt-get install -y --no-install-recommends \
-    sudo \
-    build-essential \
-    curl \
-    git \
-    wget \
-    gnupg2 \
-    tar \
-    dumb-init \
-    graphviz-dev \
-    pulseaudio \
-    libasound2-dev \
-    libdbus-glib-1-dev \
-    libgirepository1.0-dev \
-    # DLNA Server
-    dleyna-server \
-    # Install Python
-    python3-dev \
-    python3-gst-1.0 \
-    python3-setuptools \
-    python3-pip \
-    python3-venv \
-    # GStreamer (Plugins)
-    libgstreamer1.0-dev \
-    libgstreamer-plugins-base1.0-dev \
-    libgstreamer-plugins-bad1.0-dev \
-    libgstrtspserver-1.0-dev \
-    gstreamer1.0-plugins-base \ 
-    gstreamer1.0-plugins-good \
-    gstreamer1.0-plugins-bad \ 
-    gstreamer1.0-plugins-ugly \
-    gstreamer1.0-libav \
-    #gstreamer1.0-alsa \
-    gstreamer1.0-pulseaudio \
-    # GStreamer build dependencies see
-    # https://github.com/Kynothon/gst-plugins-rs-docker/blob/master/XDockerfile
-    llvm-dev \
-    libclang-dev \
-    clang \
-    gcc \
-    libssl-dev \
-    libcsound64-dev \
-    libpango1.0-dev \
-    libdav1d-dev \
-    libwebp-dev
-    # libgtk-4-dev # Only in bookworm
+RUN apt update \
+    && apt install -yq --no-install-recommends \
+    	git \
+	patch \
+	libgstreamer-plugins-base1.0-dev \
+	libgstreamer1.0-dev \
+    	libcsound64-dev \
+	libclang-11-dev \
+ 	libpango1.0-dev  \
+	libdav1d-dev \
+	# libgtk-4-dev \ Only in bookworm
+ && rm -rf /var/lib/apt/lists/*
 
-# Install gstreamer-spotify (EXPERIMENTAL)
-# Note: For spotify with upgraded version number of dependency librespot to 0.4.2
-#RUN cargo install cargo-c
-WORKDIR /build
-RUN git clone --depth 1 --single-branch -b main https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs.git
-WORKDIR /build/gst-plugins-rs
+WORKDIR /usr/src/gst-plugins-rs
+
+# Workaround for CSound-sys to compile on ARM64
+#COPY build/gst-plugins-rs/csound-sys.patch csound-sys.patch
+#RUN case ${TARGETPLATFORM} in \
+#         "linux/arm/v8") patch -ruN < ./csound-sys.patch ;; \
+#         "linux/arm64")  patch -ruN < ./csound-sys.patch ;; \
+#         *) 		 echo "No patch needed for ${TARGETPLATFORM}.";; \
+#    esac
+
+# Clone source of gst-plugins-rs to workdir
+ARG GST_PLUGINS_RS_TAG=main
+RUN git clone -c advice.detachedHead=false \
+	--single-branch --depth 1 \
+	--branch ${GST_PLUGINS_RS_TAG} \
+	https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs.git ./
+# EXPERIMENTAL: For gstreamer-spotify set upgraded version number of dependency librespot to 0.4.2 
 RUN sed -i 's/librespot = { version = "0.4", default-features = false }/librespot = { version = "0.4.2", default-features = false }/g' audio/spotify/Cargo.toml
-RUN MULTIARCHTUPLE=$(dpkg-architecture -qDEB_HOST_MULTIARCH) \
- #&& cargo cbuild --no-default-features -p gst-plugin-spotify --prefix=/usr --libdir=/usr/lib/$MULTIARCHTUPLE/ -r \
- #&& cargo cinstall -p gst-plugin-spotify --prefix=/usr --libdir=/usr/lib/$MULTIARCHTUPLE/
- && cargo build --no-default-features -p gst-plugin-spotify -r \
- && cp ./target/release/libgstspotify.so /usr/lib/$MULTIARCHTUPLE/gstreamer-1.0/
- #&& ln -s /usr/lib/$MULTIARCHTUPLE/gstreamer-1.0/libgstspotify.so /usr/lib64/$MULTIARCHTUPLE/gstreamer-1.0/libgstspotify.so || true \
-WORKDIR /build
-RUN rm -rf gst-plugins-rs
+
+# Build GStreamer plugins written in Rust (optional with --no-default-features)
+ENV DEST_DIR /target/gst-plugins-rs
+ENV CARGO_PROFILE_RELEASE_DEBUG false
+RUN export CSOUND_LIB_DIR="/usr/lib/$(uname -m)-linux-gnu" \
+ && export PLUGINS_DIR=$(pkg-config --variable=pluginsdir gstreamer-1.0) \
+ && export SO_SUFFIX=so \
+ && cargo build --release --no-default-features \
+ # List of packages to build
+    --package gst-plugin-spotify \
+ # Use install command to create directory (-d), copy and print filenames (-v), and set attributes/permissions (-m)
+ && install -v -d ${DEST_DIR}/${PLUGINS_DIR} \
+ && install -v -m 755 target/release/*.${SO_SUFFIX} ${DEST_DIR}/${PLUGINS_DIR}
+
+
+# --- Release Node ---
+FROM debian:bullseye-slim as Release
+
+# Switch to the root user while we do our changes
+USER root
 WORKDIR /
 
-# Install mopidy from apt.mopidy.com
+# Install GStreamer and other required Debian packages
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    sudo \
+    wget \
+    gnupg2 \
+    git \
+    python3-setuptools \
+    python3-pip \
+    dumb-init \
+    graphviz-dev \
+    gstreamer1.0-plugins-bad \
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-ugly \
+    gstreamer1.0-pulseaudio \
+    libasound2-dev \
+    python3-dev \
+    python3-gst-1.0 \
+    build-essential \
+    libdbus-glib-1-dev \
+    libgirepository1.0-dev \
+  && rm -rf /var/lib/apt/lists/*
+
+# Copy builded target data from Builder DEST_DIR to root
+# Note: target directory tree links directly to $GST_PLUGIN_PATH
+COPY --from=Builder /target/gst-plugins-rs/ /
+# Place or link plugin library to any $GST_PLUGIN_PATH library
+#RUN MULTIARCHTUPLE=$(dpkg-architecture -qDEB_HOST_MULTIARCH) \
+# && cp ./target/release/libgstspotify.so /usr/lib/$MULTIARCHTUPLE/gstreamer-1.0/
+# #&& ln -s /usr/lib/$MULTIARCHTUPLE/gstreamer-1.0/libgstspotify.so /usr/lib64/$MULTIARCHTUPLE/gstreamer-1.0/libgstspotify.so || true \
+#RUN rm -rf target
+
+# Install mopidy and (optional) DLNA-server dleyna from apt.mopidy.com
 # see https://docs.mopidy.com/en/latest/installation/debian/
 RUN mkdir -p /usr/local/share/keyrings \
  && wget -q -O /usr/local/share/keyrings/mopidy-archive-keyring.gpg https://apt.mopidy.com/mopidy.gpg \
  && wget -q -O /etc/apt/sources.list.d/mopidy.list https://apt.mopidy.com/buster.list \
  && apt-get update \
- && apt-get install -y mopidy \
+ && apt-get install -y \ 
+ 	mopidy \
+	mopidy-dleyna \
  && rm -rf /var/lib/apt/lists/*
 
 # Upgrade Python package manager pip
 # https://pypi.org/project/pip/
 RUN python3 -m pip install --upgrade pip
-
-# Install PyGObject
-# https://pypi.org/project/PyGObject/
-RUN python3 -m pip install pygobject
-
-# Install cffi from source
-# Note: In some distributions libffi-devel is too old, hardcoded stuff
-# https://pypi.org/project/cffi/
-RUN python3 -m pip install cffi
-#ENV CFFI_VERSION=1.15.0
-#RUN python3 -m pip install cffi==${CFFI_VERSION}
-# Or install from source
-#RUN curl -so cffi-${CFFI_VERSION}.tar.gz https://files.pythonhosted.org/packages/00/9e/92de7e1217ccc3d5f352ba21e52398372525765b2e0c4530e6eb2ba9282a/cffi-${CFFI_VERSION}.tar.gz \
-# && tar -xzf cffi-${CFFI_VERSION}.tar.gz --strip-components=1 \
-# && python3 setup.py install \
-# && rm -rf *
 
 # Clone Iris from the repository and install in development mode.
 # This allows a binding at "/iris" to map to your local folder for development, rather than
@@ -121,7 +130,7 @@ RUN git clone --depth 1 --single-branch -b ${IRIS_VERSION} https://github.com/ja
  # Allow mopidy user to run system commands (restart, local scan, etc)
  && echo "mopidy ALL=NOPASSWD: /iris/mopidy_iris/system.sh" >> /etc/sudoers
 
-# Install default pip packages
+# Install minimal set of pip packages for mopidy 
 RUN python3 -m pip install --no-cache \
     tox \
     mopidy-mpd \
@@ -135,12 +144,9 @@ RUN git clone --depth 1 -b gstspotifysrc-hack https://github.com/kingosticks/mop
  && cd .. \
  && rm -rf mopidy-spotify
 
-# Install additional Python dependencies
+# Install additional mopidy extensions and Python dependencies via pip
 COPY requirements.txt .
 RUN python3 -m pip install -r requirements.txt
-
-# Cleanup
-RUN apt-get clean all && rm -rf /var/lib/apt/lists/* && rm -rf /root/.cache
 
 # Start helper script.
 COPY docker/entrypoint.sh /entrypoint.sh
@@ -179,7 +185,7 @@ RUN echo "1" >> /IS_CONTAINER
 # && sed -i 's/<style>/<style> .progress .slider {cursor: not-allowed !important;} .progress .slider__input {pointer-events: none !important;} .button--destructive {display: none !important} .flag--dark {display: none !important} .sub-tabs--servers {display: none !important}/g' ${MOPIDY_INSTALL_DIR}/lib/python$PYTHON_VERSION/site-packages/mopidy_iris/static/index.html
 ## - Patch system.sh with PATH and disable hardcoded _USE_SUDO!
 # && sed -i "2i export PATH=${PATH}" ${MOPIDY_INSTALL_DIR}/lib/python$PYTHON_VERSION/site-packages/mopidy_iris/system.sh \
-# &&  sed -i 's/_USE_SUDO = True/_USE_SUDO = False/g' ${MOPIDY_INSTALL_DIR}/lib/python$PYTHON_VERSION/site-packages/mopidy_iris/system.py
+# && sed -i 's/_USE_SUDO = True/_USE_SUDO = False/g' ${MOPIDY_INSTALL_DIR}/lib/python$PYTHON_VERSION/site-packages/mopidy_iris/system.py
 
 # Runs as mopidy user by default.
 USER mopidy:audio
