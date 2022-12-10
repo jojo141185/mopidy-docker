@@ -30,7 +30,7 @@ Here is the [repository](https://hub.docker.com/repository/docker/jojo141185/mop
 
 Getting the image from DockerHub is as simple as typing:
 
-`docker pull jojo141185/mopidy:nightly`
+`docker pull jojo141185/mopidy:edge`
 
 You may want to pull the more stable "edge" image as opposed to the "nightly".
 
@@ -39,13 +39,14 @@ You may want to pull the more stable "edge" image as opposed to the "nightly".
 Start mopidy from the directory where your mopidy config file (mopidy.conf) is placed by typing:
 
     docker run -d \
+        --name mopidy
         --device /dev/snd \
         --user $UID:$GID \
+        -v "$PWD/config:/config" \
         -v "$PWD/media:/var/lib/mopidy/media:ro" \
         -v "$PWD/local:/var/lib/mopidy/local" \
-        -v "$PWD/mopidy.conf:/config/mopidy.conf" \
         -p 6600:6600 -p 6680:6680 \
-        jojo141185/mopidy:edge
+        jojo141185/mopidy
 
 
 The following table describes the docker arguments and environment variables:
@@ -53,16 +54,17 @@ ARGUMENT|DEFAULT|DESCRIPTION
 ---|---|---|
 --device | /dev/snd | For ALSA share the hosts sound device /dev/snd. For pulseaudio see this [guide](https://github.com/mviereck/x11docker/wiki/Container-sound:-ALSA-or-Pulseaudio) or use [snapcast](https://github.com/badaix/snapcast) for network / multiroom audio solution.
 --user | root | (optional) You may run as any UID/GID, by default it'll run as UID/GID 84044 (mopidy:audio within the container).
--v | $PWD:/var/lib/mopidy/media:ro | (optional) Cange $PWD path to directory with local media files (ro=read only).
--v | $PWD:/var/lib/mopidy/local | (optional) Cange $PWD path to directory to store local metadata, libraries and playlists.
+-v | $PWD/config:/config  (essential) Cange $PWD/config path to the directory on host where your mopidy.conf is located.
+-v | $PWD/media:/var/lib/mopidy/media:ro | (optional) Cange $PWD/media path to directory with local media files (ro=read only).
+-v | $PWD/local:/var/lib/mopidy/local | (optional) Cange $PWD/local path to directory to store local metadata, libraries and playlists.
 -p | 6600:6600 | (optional) Exposes MPD server to port 6600 on host (if you use for example ncmpcpp client).
 -p | 6680:6680 | (optional) Exposes HTTP server to port 6680 on host (if you use your browser as client).
--p | 5555:5555/udp | (optional) Exposes UDP streaming on port 5555 for fifo sink (e.g. for visualizers).
--e | PIP_PACKAGES | (optional) Environment variable to inject some pip packages and mopidy extensions (i.e. Mopidy-Tidal) on upstart of container .
+-p | 5555:5555/udp | (optional) Exposes UDP streaming on port 5555 for FIFE sink (e.g. for visualizers).
+-e | PIP_PACKAGES | (optional) Environment variable to inject some pip packages and mopidy extensions (i.e. Mopidy-Tidal) on upstart of container.
     
 Note: 
-- If you have issues, try first as --user root.
-- On problems accessing the web interface, check in mopidy.conf that you are using the correct IP address. Try "hostname: 0.0.0.0" to listen to any. 
+- If you have problems with permission errors, try --user root first.
+- On problems accessing the web interface, check mopidy.conf using the correct IP address. Try "hostname: 0.0.0.0" to listen to any and with no (=empty) access restrictions in "allowed_origins = ". 
 
 ## Build
 
