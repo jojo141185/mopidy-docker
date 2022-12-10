@@ -11,23 +11,23 @@ on:
         default: warning
   push:
     branches:
-        - main
-        - develop
+      - main
+      - develop
     tags:
-      - '*'
+      - 'v*'
     paths-ignore:
       - '**.md'
       - '.github/workflows/**'
       - 'docs/**'
   pull_request:
     branches:
-      - 'mopidy_docker'
+      - main
     paths-ignore:
       - '**.md'
       - '.github/workflows/**'
       - 'docs/**'
-  #schedule:
-  #  - cron: '0 12 * * *' # everyday at 12am
+  schedule:
+    - cron: '0 5 * * *' # everyday at 5am
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -60,8 +60,9 @@ jobs:
                 ${{ env.DOCKERHUB_SLUG }}
               tags: |
                 type=schedule,pattern=nightly
-                type=edge,branch=${{ steps.branch-name.outputs.current_branch }}
-                type=match,pattern=v(\d.\d.\d),group=1
+                type=semver,pattern={{version}}
+                type=edge,branch=${{ steps.branch-name.outputs.default_branch }}
+                type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'develop') }}
             
             # GitHub Action to install QEMU static binaries.
           - name: Set up QEMU
