@@ -54,7 +54,7 @@ ARGUMENT|DEFAULT|DESCRIPTION
 ---|---|---|
 --device | /dev/snd | For ALSA share the hosts sound device /dev/snd. For pulseaudio see this [guide](https://github.com/mviereck/x11docker/wiki/Container-sound:-ALSA-or-Pulseaudio) or use [snapcast](https://github.com/badaix/snapcast) for network / multiroom audio solution.
 --user | root | (optional) You may run as any UID/GID, by default it'll run as UID/GID 84044 (mopidy:audio within the container).
--v | $PWD/config:/config  (essential) Cange $PWD/config path to the directory on host where your mopidy.conf is located.
+-v | $PWD/config:/config | (essential) Cange $PWD/config path to the directory on host where your mopidy.conf is located.
 -v | $PWD/media:/var/lib/mopidy/media:ro | (optional) Cange $PWD/media path to directory with local media files (ro=read only).
 -v | $PWD/local:/var/lib/mopidy/local | (optional) Cange $PWD/local path to directory to store local metadata, libraries and playlists.
 -p | 6600:6600 | (optional) Exposes MPD server to port 6600 on host (if you use for example ncmpcpp client).
