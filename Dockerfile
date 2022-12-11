@@ -163,8 +163,8 @@ ENV HOME=/var/lib/mopidy
 RUN set -ex \
  && usermod -G audio,sudo mopidy \
  && mkdir /var/lib/mopidy/local \
- && chown mopidy:audio -R $HOME /entrypoint.sh \
- && chmod go+rwx -R $HOME /entrypoint.sh
+ && chown mopidy:audio -R $HOME /entrypoint.sh /iris \
+ && chmod go+rwx -R $HOME /entrypoint.sh /iris
 
 ## IRIS MODIFICATIONS
 RUN PYTHON_VERSION=`python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))'` \
