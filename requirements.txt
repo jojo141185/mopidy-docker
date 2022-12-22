@@ -5,7 +5,7 @@ Mopidy-Mpd
 Mopidy-MusicBox-Webclient
 Mopidy-Party
 Mopidy-Podcast
-Mopidy-RadioNet
+#Mopidy-RadioNet
 Mopidy-Scrobbler
 Mopidy-Soundcloud
 Mopidy-TuneIn

@@ -144,6 +144,14 @@ RUN git clone --depth 1 -b gstspotifysrc-hack https://github.com/kingosticks/mop
  && cd .. \
  && rm -rf mopidy-spotify
 
+# Install mopidy-radionet (PR API-Fixed)
+# (https://github.com/plintx/mopidy-radionet/pull/18)
+RUN git clone --depth 1 -b master https://github.com/Emrvb/mopidy-radionet.git mopidy-radionet \
+ && cd mopidy-radionet \
+ && python3 setup.py install \
+ && cd .. \
+ && rm -rf mopidy-radionet
+
 # Install additional mopidy extensions and Python dependencies via pip
 COPY requirements.txt .
 RUN python3 -m pip install -r requirements.txt
