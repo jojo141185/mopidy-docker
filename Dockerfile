@@ -71,35 +71,39 @@ WORKDIR /
 
 # Install GStreamer and other required Debian packages
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends \
+ && apt-get install -y --no-install-recommends \
     sudo \
+    build-essential \
+    curl \
+    git \
     wget \
     gnupg2 \
-    git \
-    python3-setuptools \
-    python3-pip \
     dumb-init \
     graphviz-dev \
-    gstreamer1.0-plugins-bad \
-    gstreamer1.0-plugins-good \
-    gstreamer1.0-plugins-ugly \
-    gstreamer1.0-pulseaudio \
+    pulseaudio \
     libasound2-dev \
-    python3-dev \
-    python3-gst-1.0 \
-    build-essential \
     libdbus-glib-1-dev \
     libgirepository1.0-dev \
-  && rm -rf /var/lib/apt/lists/*
+    # Install Python
+    python3-dev \
+    python3-gst-1.0 \
+    python3-setuptools \
+    python3-pip \
+    # GStreamer (Plugins)
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad \
+    gstreamer1.0-plugins-ugly \
+    gstreamer1.0-libav \
+    gstreamer1.0-pulseaudio \
+ && rm -rf /var/lib/apt/lists/*
 
 # Copy builded target data from Builder DEST_DIR to root
 # Note: target directory tree links directly to $GST_PLUGIN_PATH
 COPY --from=Builder /target/gst-plugins-rs/ /
-# Place or link plugin library to any $GST_PLUGIN_PATH library
-#RUN MULTIARCHTUPLE=$(dpkg-architecture -qDEB_HOST_MULTIARCH) \
-# && cp ./target/release/libgstspotify.so /usr/lib/$MULTIARCHTUPLE/gstreamer-1.0/
-# #&& ln -s /usr/lib/$MULTIARCHTUPLE/gstreamer-1.0/libgstspotify.so /usr/lib64/$MULTIARCHTUPLE/gstreamer-1.0/libgstspotify.so || true \
-#RUN rm -rf target
+
+# Install Node, to build Iris JS application
+RUN curl -fsSL https://deb.nodesource.com/setup_14.x | bash - && \
+    apt-get install -y nodejs
 
 # Install mopidy and (optional) DLNA-server dleyna from apt.mopidy.com
 # see https://docs.mopidy.com/en/latest/installation/debian/
@@ -109,7 +113,6 @@ RUN mkdir -p /usr/local/share/keyrings \
  && apt-get update \
  && apt-get install -y \ 
  	mopidy \
-	mopidy-dleyna \
  && rm -rf /var/lib/apt/lists/*
 
 # Upgrade Python package manager pip
@@ -121,20 +124,19 @@ RUN python3 -m pip install --upgrade pip
 # installing using pip.
 # Note: ADD helps prevent RUN caching issues. When HEAD changes in repo, our cache will be invalidated!
 ADD https://api.github.com/repos/jaedb/Iris/git/refs/heads/master version.json
-ENV IRIS_VERSION=3.64.0
+ENV IRIS_VERSION=develop
 RUN git clone --depth 1 --single-branch -b ${IRIS_VERSION} https://github.com/jaedb/Iris.git /iris \
  && cd /iris \
+ && npm install \
+ && npm run prod \
  && python3 setup.py develop \
  && mkdir -p /var/lib/mopidy/.config \
  && ln -s /config /var/lib/mopidy/.config/mopidy \
  # Allow mopidy user to run system commands (restart, local scan, etc)
- && echo "mopidy ALL=NOPASSWD: /iris/mopidy_iris/system.sh" >> /etc/sudoers
-
-# Install minimal set of pip packages for mopidy 
-RUN python3 -m pip install --no-cache \
-    tox \
-    mopidy-mpd \
-    mopidy-local
+ && echo "mopidy ALL=NOPASSWD: /iris/mopidy_iris/system.sh" >> /etc/sudoers \
+ # Enable container mode (disable restart option, etc.)
+ && echo "1" >> /IS_CONTAINER
+COPY /iris/VERSION /
 
 # Install mopidy-spotify-gstspotify (Hack, not released yet!)
 # (https://github.com/kingosticks/mopidy-spotify/tree/gstspotifysrc-hack)
@@ -156,44 +158,29 @@ RUN git clone --depth 1 -b master https://github.com/Emrvb/mopidy-radionet.git m
 COPY requirements.txt .
 RUN python3 -m pip install -r requirements.txt
 
+# Cleanup
+RUN apt-get clean all \
+ && rm -rf /var/lib/apt/lists/* \
+ && rm -rf /root/.cache \
+ && rm -rf /iris/node_modules
+
 # Start helper script.
 COPY docker/entrypoint.sh /entrypoint.sh
 
-# Default configuration.
+# Copy Default configuration for mopidy
 COPY docker/mopidy/mopidy.example.conf /config/mopidy.conf
 
-# Copy the pulse-client configuratrion.
+# Copy the pulse-client configuratrion
 COPY docker/mopidy/pulse-client.conf /etc/pulse/client.conf
 
 # Allows any user to run mopidy, but runs by default as a randomly generated UID/GID.
 # RUN useradd -ms /bin/bash mopidy
 ENV HOME=/var/lib/mopidy
 RUN set -ex \
- && usermod -G audio,sudo mopidy \
+ && usermod -G audio,sudo,pulse-access mopidy \
  && mkdir /var/lib/mopidy/local \
  && chown mopidy:audio -R $HOME /entrypoint.sh /iris \
  && chmod go+rwx -R $HOME /entrypoint.sh /iris
-
-## IRIS MODIFICATIONS
-RUN PYTHON_VERSION=`python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))'` \
- && sed -i 's/upgrade_available = upgrade_available == 1/upgrade_available = False/g' /iris/mopidy_iris/core.py
-## Disable restart option in container mode
-## https://github.com/jaedb/Iris/blob/master/mopidy_iris/system.sh#L3-L7
-RUN echo "1" >> /IS_CONTAINER
-## Other special settings
-## - Disable service worker (cache)
-#RUN PYTHON_VERSION=`python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))'` \
-# && rm -f ${MOPIDY_INSTALL_DIR}/lib/python$PYTHON_VERSION/site-packages/mopidy_iris/static/service-worker.js
-## - Disable update check
-# && sed -i 's/upgrade_available = upgrade_available == 1/upgrade_available = False/g' ${MOPIDY_INSTALL_DIR}/lib/python$PYTHON_VERSION/site-packages/mopidy_iris/core.py
-## - Web-UI Settings
-## .button--destructive: restart server and reset settings button
-## .flag--dark: uptodate label
-## .sub-tabs--servers: server configuration
-# && sed -i 's/<style>/<style> .progress .slider {cursor: not-allowed !important;} .progress .slider__input {pointer-events: none !important;} .button--destructive {display: none !important} .flag--dark {display: none !important} .sub-tabs--servers {display: none !important}/g' ${MOPIDY_INSTALL_DIR}/lib/python$PYTHON_VERSION/site-packages/mopidy_iris/static/index.html
-## - Patch system.sh with PATH and disable hardcoded _USE_SUDO!
-# && sed -i "2i export PATH=${PATH}" ${MOPIDY_INSTALL_DIR}/lib/python$PYTHON_VERSION/site-packages/mopidy_iris/system.sh \
-# && sed -i 's/_USE_SUDO = True/_USE_SUDO = False/g' ${MOPIDY_INSTALL_DIR}/lib/python$PYTHON_VERSION/site-packages/mopidy_iris/system.py
 
 # Runs as mopidy user by default.
 USER mopidy:audio

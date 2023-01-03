@@ -1,7 +1,7 @@
 Mopidy-dLeyna
 Mopidy-Jellyfin
 Mopidy-Local
-Mopidy-Mpd
+Mopidy-MPD
 Mopidy-MusicBox-Webclient
 Mopidy-Party
 Mopidy-Podcast
