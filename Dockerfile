@@ -137,7 +137,7 @@ RUN git clone --depth 1 --single-branch -b ${IRIS_VERSION} https://github.com/ja
  # Enable container mode (disable restart option, etc.)
  && echo "1" >> /IS_CONTAINER \
  # Copy Version file
- && /iris/VERSION /
+ && cp /iris/VERSION /
 
 # Install mopidy-spotify-gstspotify (Hack, not released yet!)
 # (https://github.com/kingosticks/mopidy-spotify/tree/gstspotifysrc-hack)
