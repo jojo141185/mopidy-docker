@@ -135,8 +135,9 @@ RUN git clone --depth 1 --single-branch -b ${IRIS_VERSION} https://github.com/ja
  # Allow mopidy user to run system commands (restart, local scan, etc)
  && echo "mopidy ALL=NOPASSWD: /iris/mopidy_iris/system.sh" >> /etc/sudoers \
  # Enable container mode (disable restart option, etc.)
- && echo "1" >> /IS_CONTAINER
-COPY /iris/VERSION /
+ && echo "1" >> /IS_CONTAINER \
+ # Copy Version file
+ && /iris/VERSION /
 
 # Install mopidy-spotify-gstspotify (Hack, not released yet!)
 # (https://github.com/kingosticks/mopidy-spotify/tree/gstspotifysrc-hack)
