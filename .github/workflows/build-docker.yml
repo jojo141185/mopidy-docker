@@ -75,29 +75,29 @@ jobs:
             with:
               buildkitd-flags: "--debug"
 
-            # GitHub Action to free disk space on Ubuntu action runners.
-          #- name: Free Disk Space (Ubuntu)
-          #  uses: jlumbroso/free-disk-space@main
+          #   # GitHub Action to free disk space on Ubuntu action runners.
+          # - name: Free Disk Space (Ubuntu)
+          #   uses: jlumbroso/free-disk-space@main
 
-            # Hack to fix Error "Value too large for defined data type;" on arm/v7 and linux/386  
-            # https://github.com/crazy-max/ghaction-docker-buildx/issues/172
-            # 1. Create Swapfile of (1MBx10K) 10GB size to increase hosts (virtual) ram
-            # 2. Mount tempfs with max. size of Swapfile + host's Phys.RAM (~6 GB) to dockers filesystem /var/lib/docker (volumes, etc.)
-            # 
-          - name: Hack docker filesystem to create small tmpfs for docker cache
-            run: |
-              df -h
-              sudo swapon --show
-              sudo dd if=/dev/zero of=/swapfile1 bs=1M count=10K 
-              sudo chmod 600 /swapfile1
-              sudo mkswap /swapfile1
-              sudo swapon /swapfile1
-              sudo swapon --show
-              sudo free -h
-              sudo systemctl stop docker
-              sudo mount -t tmpfs -o size=15G tmpfs /var/lib/docker
-              df -h
-              sudo systemctl start docker
+          #   # Hack to fix Error "Value too large for defined data type;" on arm/v7 and linux/386  
+          #   # https://github.com/crazy-max/ghaction-docker-buildx/issues/172
+          #   # 1. Create Swapfile of (1MBx10K) 10GB size to increase hosts (virtual) ram
+          #   # 2. Mount tempfs with max. size of Swapfile + host's Phys.RAM (~6 GB) to dockers filesystem /var/lib/docker (volumes, etc.)
+          #   # 
+          # - name: Hack docker filesystem to create small tmpfs for docker cache
+          #   run: |
+          #     df -h
+          #     sudo swapon --show
+          #     sudo dd if=/dev/zero of=/swapfile1 bs=1M count=10K 
+          #     sudo chmod 600 /swapfile1
+          #     sudo mkswap /swapfile1
+          #     sudo swapon /swapfile1
+          #     sudo swapon --show
+          #     sudo free -h
+          #     sudo systemctl stop docker
+          #     sudo mount -t tmpfs -o size=15G tmpfs /var/lib/docker
+          #     df -h
+          #     sudo systemctl start docker
       
           # GitHub Action to login to DockerHub.
           -   name: Login to DockerHub
