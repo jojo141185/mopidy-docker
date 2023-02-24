@@ -36,7 +36,11 @@ You may want to pull the more stable "edge" image as opposed to the "nightly".
 
 ## Usage
 
-Start mopidy from the directory where your mopidy config file (mopidy.conf) is placed by typing:
+You can start the mopidy container by simply using the command [`docker run`](https://docs.docker.com/engine/reference/commandline/run/) or the [docker compose](https://docs.docker.com/compose/) tool where you can store your docker configuration in a seperate yaml file.
+
+In both ways you need to adapt the command or docker-compose.yaml file to your specific host environment.
+### docker run
+Start the mopidy docker container with the docker run command:
 
     docker run -d \
         --name mopidy \
@@ -46,7 +50,7 @@ Start mopidy from the directory where your mopidy config file (mopidy.conf) is p
         -v "$PWD/media:/var/lib/mopidy/media:ro" \
         -v "$PWD/local:/var/lib/mopidy/local" \
         -p 6600:6600 -p 6680:6680 \
-        jojo141185/mopidy:edge
+        jojo141185/mopidy:latest
 
 
 The following table describes the docker arguments and environment variables:
@@ -66,14 +70,27 @@ Note:
 - If you have problems with permission errors, try --user root first.
 - On problems accessing the web interface, check mopidy.conf using the correct IP address. Try "hostname: 0.0.0.0" to listen to any and with no (=empty) access restrictions in "allowed_origins = ". 
 
+### docker compose
+First check that Docker compose is already [installed](https://docs.docker.com/compose/install/) on your host.
+
+1. Copy the [docker-compose.yaml](https://github.com/jojo141185/mopidy-docker/blob/main/docker/docker-compose.yaml) file from this repository to the current directory.
+2. Make sure that your mopidy config file (mopidy.conf) is placed in a subfolder named "config".  
+You can also add / modify the volume paths in the yaml file, i.e. to your local media folder or the directory where the metadata information will be stored on host (see table above).
+3. Start the mopidy container with the following command  
+Compose V1: `run docker-compose up -d`  
+Compose V2: `docker compose up -d`
+
+
 ## Build
 
 You can build (or rebuild) the image by opening a terminal from the root of the repository and issuing the following command:
 
 `docker build . -t jojo141185/mopidy`
 
-It will take a long time espacialy on a Raspberry Pi. When it's finished, you can run the container following the previous instructions.  
-Just be careful to use the tag you have built.
+It will take a long time espacialy on a Raspberry Pi.  
+When it's finished, you can run the container following the previous instructions.  
+Just be careful to use the tag from your own built.
 
 ## References
-The Dockerfile is also based on the work of jaedb but includes some patches and bugfixes.
+Spotify disabled access to libspotify on May 16 2022. To be able to use Spotify as audio source, the mopidy-Spotify-Plugin was tweaked by @kingosticks. It now uses the GStreamer plugin "gst-plugins-spotify" in the background to play Spotify songs.  
+For this reason this mopidy container should be seen as an alpha version with limited features in interaction with Spotify (i.e. no seeking support).
