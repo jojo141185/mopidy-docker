@@ -63,7 +63,8 @@ jobs:
                 type=semver,pattern={{version}}
                 type=edge,branch=${{ steps.branch-name.outputs.default_branch }}
                 type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'develop') }}
-            
+                type=ref,event=branch
+                
             # GitHub Action to install QEMU static binaries.
           - name: Set up QEMU
             uses: docker/setup-qemu-action@v2
