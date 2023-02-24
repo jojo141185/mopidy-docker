@@ -39,7 +39,7 @@ You may want to pull the more stable "edge" image as opposed to the "nightly".
 Start mopidy from the directory where your mopidy config file (mopidy.conf) is placed by typing:
 
     docker run -d \
-        --name mopidy
+        --name mopidy \
         --device /dev/snd \
         --user $UID:$GID \
         -v "$PWD/config:/config" \
