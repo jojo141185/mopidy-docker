@@ -17,14 +17,14 @@ on:
       - 'v*'
     paths-ignore:
       - '**.md'
-      - '.github/workflows/**'
+      #- '.github/workflows/**'
       - 'docs/**'
   pull_request:
     branches:
       - main
     paths-ignore:
       - '**.md'
-      - '.github/workflows/**'
+      #- '.github/workflows/**'
       - 'docs/**'
   schedule:
     - cron: '0 5 * * *' # everyday at 5am
