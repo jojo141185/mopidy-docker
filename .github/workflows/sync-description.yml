@@ -18,8 +18,8 @@ on:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-    # This workflow contains a single job called "release"
-    release:
+    # This workflow contains a single job called "sync-readme"
+    sync-readme:
         # The type of runner that the job will run on
         runs-on: ubuntu-latest
 
@@ -30,15 +30,16 @@ jobs:
         # Steps represent a sequence of tasks that will be executed as part of the job
         steps:
             # Github action to get branch or tag information without the /ref/* prefix
-        - name: Checkout
-          uses: actions/checkout@v3
-
-        - name: Docker Hub README & description sync
-          uses: peter-evans/dockerhub-description@v3
-          with:
-            username: ${{ secrets.DOCKERHUB_USERNAME }}
-            password: ${{ secrets.DOCKERHUB_PASSWORD }}
-            repository: ${{ secrets.DOCKERHUB_USERNAME }}/mopidy
-            readme-filepath: ./README.md
-            short-description: Mopidy music server with Iris Web-UI, Spotify support and many other extensions.
+          - name: Checkout
+            uses: actions/checkout@v3
+          
+            # Github action to sync description files to docker hub
+          - name: Docker Hub README & description sync
+            uses: peter-evans/dockerhub-description@v3
+            with:
+              username: ${{ secrets.DOCKERHUB_USERNAME }}
+              password: ${{ secrets.DOCKERHUB_PASSWORD }}
+              repository: ${{ env.DOCKERHUB_SLUG }}
+              readme-filepath: ./README.md
+              short-description: Mopidy music server with Iris Web-UI, Spotify support and many other extensions.
 
