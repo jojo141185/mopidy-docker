@@ -73,7 +73,7 @@ Note:
 ### docker compose
 First check that Docker compose is already [installed](https://docs.docker.com/compose/install/) on your host.
 
-1. Copy the [docker-compose.yaml](https://github.com/jojo141185/mopidy-docker/blob/main/docker/docker-compose.yaml) file from this repository to the current directory.
+1. Copy the [docker-compose.yml](https://github.com/jojo141185/mopidy-docker/blob/main/docker/docker-compose.yml) file from this repository to the current directory.
 2. Make sure that your mopidy config file (mopidy.conf) is placed in a subfolder named "config".  
 You can also add / modify the volume paths in the yaml file, i.e. to your local media folder or the directory where the metadata information will be stored on host (see table above).
 3. Start the mopidy container with the following command  
