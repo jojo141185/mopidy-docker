@@ -36,6 +36,7 @@ You may want to pull the more stable "edge" image as opposed to the "nightly".
 
 ## Usage
 
+### Docker run
 Start mopidy from the directory where your mopidy config file (mopidy.conf) is placed by typing:
 
     docker run -d \
@@ -65,6 +66,9 @@ ARGUMENT|DEFAULT|DESCRIPTION
 Note: 
 - If you have problems with permission errors, try --user root first.
 - On problems accessing the web interface, check mopidy.conf using the correct IP address. Try "hostname: 0.0.0.0" to listen to any and with no (=empty) access restrictions in "allowed_origins = ". 
+
+### `docker-compose`
+Start in the directory where `compose.yaml` exists, and run `docker-compose up -d`.
 
 ## Build
 
