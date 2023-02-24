@@ -1,0 +1,14 @@
+version: '3.3'
+services:
+    mopidy:
+        container_name: mopidy
+        devices:
+            - /dev/snd
+        volumes:
+            - '$PWD/config:/config'
+            #- '$PWD/media:/var/lib/mopidy/media:ro'
+            #- '$PWD/local:/var/lib/mopidy/local'
+        ports:
+            - '6600:6600'
+            - '6680:6680'
+        image: 'jojo141185/mopidy:latest'
