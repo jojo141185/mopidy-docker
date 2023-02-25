@@ -33,8 +33,8 @@ RUN apt update \
 WORKDIR /usr/src/gst-plugins-rs
 
 # Workaround for CSound-sys to compile on ARM64
-#COPY build/gst-plugins-rs/csound-sys.patch csound-sys.patch
-#RUN case ${TARGETPLATFORM} in \
+# COPY build/gst-plugins-rs/csound-sys.patch csound-sys.patch
+# RUN case ${TARGETPLATFORM} in \
 #         "linux/arm/v8") patch -ruN < ./csound-sys.patch ;; \
 #         "linux/arm64")  patch -ruN < ./csound-sys.patch ;; \
 #         *) 		 echo "No patch needed for ${TARGETPLATFORM}.";; \
