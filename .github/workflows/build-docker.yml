@@ -83,7 +83,7 @@ jobs:
           # https://github.com/crazy-max/ghaction-docker-buildx/issues/172
           # 1. Create Swapfile of (1MBx20K) 20GB size to increase hosts (virtual) ram
           # 2. Mount tempfs with max. size of Swapfile + host's Phys.RAM (~6 GB) to dockers filesystem /var/lib/docker (volumes, etc.)
-          # 
+          # Note: If tempfs is too small for build the runner will receive a shutdown signal
           - name: Hack docker filesystem to create small tmpfs for docker cache
             run: |
               df -h
