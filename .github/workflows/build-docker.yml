@@ -56,14 +56,15 @@ jobs:
             id: docker_meta
             uses: docker/metadata-action@v4
             with:
+              github-token: ${{ secrets.GITHUB_TOKEN }}
               images: |
                 ${{ env.DOCKERHUB_SLUG }}
               tags: |
-                type=schedule,pattern=nightly
+                type=schedule,pattern=latest
                 type=semver,pattern={{version}}
                 type=edge,branch=${{ steps.branch-name.outputs.default_branch }}
-                type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'develop') }}
-                type=ref,event=branch
+                type=raw,value=develop,enable=${{ github.ref == format('refs/heads/{0}', 'develop') }}
+                type=ref,event=branch,enable=${{ !(steps.branch-name.outputs.default_branch) && (github.ref != format('refs/heads/{0}', 'develop')) }}
 
           # GitHub Action to install QEMU static binaries.
           - name: Set up QEMU
