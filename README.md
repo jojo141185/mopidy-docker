@@ -18,7 +18,10 @@ Besides the music server mopidy, the image includes the great web interface [IRI
 - TuneIn
 - MusicBox & Party Webclient
 ## Prerequisites
-You need to have Docker up and running on a Linux machine, and the current user must be allowed to run containers (this usually means that the current user belongs to the "docker" group).
+You need to have Docker up and running on a Linux machine.
+
+
+and the current user must be allowed to run containers (this usually means that the current user belongs to the "docker" group).
 
 You can verify whether your user belongs to the "docker" group with the following command:
 `getent group | grep docker`
@@ -39,6 +42,21 @@ You may want to pull the more stable "edge" image as opposed to the "nightly".
 You can start the mopidy container by simply using the command [`docker run`](https://docs.docker.com/engine/reference/commandline/run/) or the [docker compose](https://docs.docker.com/compose/) tool where you can store your docker configuration in a seperate yaml file.
 
 In both ways you need to adapt the command or docker-compose.yaml file to your specific host environment.
+### Manage Docker as a non-root user
+
+If you need to run docker as non-root user then you need to add it to the docker group.
+1. Create the docker group, if it does not already exist  
+`sudo groupadd docker`
+2. Add your user to the docker group  
+`sudo usermod -aG docker $USER`
+3. Log in to the new docker group (should avoid having to log out & log in again):  
+`newgrp docker`
+4. Check if docker can be run without root  
+`docker run hello-world`  
+Try to reboot if you still get permission error!
+
+!! Warning !!  
+The docker group grants privileges equivalent to the root user. For details on how this impacts security in your system, see (Docker Daemon Attack Surface)[https://docs.docker.com/engine/security/#docker-daemon-attack-surface]
 ### docker run
 Start the mopidy docker container with the docker run command:
 
@@ -51,7 +69,6 @@ Start the mopidy docker container with the docker run command:
         -v "$PWD/local:/var/lib/mopidy/local" \
         -p 6600:6600 -p 6680:6680 \
         jojo141185/mopidy:latest
-
 
 The following table describes the docker arguments and environment variables:
 ARGUMENT|DEFAULT|DESCRIPTION

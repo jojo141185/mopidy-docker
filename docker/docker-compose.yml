@@ -2,6 +2,7 @@ version: '3.3'
 services:
     mopidy:
         container_name: mopidy
+        user: root
         devices:
             - /dev/snd
         volumes:
