@@ -83,7 +83,7 @@ jobs:
           # Hack to fix Error "Value too large for defined data type;" on arm/v7 and linux/386  
           # https://github.com/crazy-max/ghaction-docker-buildx/issues/172
           # 1. Create Swapfile of 18GB (1MBx18K) size to increase hosts (virtual) ram
-          # 2. Mount tempfs with max. size of Swapfile + host's Phys.RAM (~6 GB) to dockers filesystem /var/lib/docker (volumes, etc.)
+          # 2. Mount tempfs with max. size of Swapfile + host's Phys.RAM (max ~6 GB) to dockers filesystem /var/lib/docker (volumes, etc.)
           # Note: If tempfs is too small for build the runner will receive a shutdown signal
           - name: Hack docker filesystem to create small tmpfs for docker cache
             run: |
@@ -96,7 +96,7 @@ jobs:
               sudo swapon --show
               sudo free -h
               sudo systemctl stop docker
-              sudo mount -t tmpfs -o size=23G tmpfs /var/lib/docker
+              sudo mount -t tmpfs -o size=22G tmpfs /var/lib/docker
               df -h
               sudo systemctl start docker
       
