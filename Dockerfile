@@ -50,12 +50,13 @@ RUN git clone -c advice.detachedHead=false \
 RUN sed -i 's/librespot = { version = "0.4", default-features = false }/librespot = { version = "0.4.2", default-features = false }/g' audio/spotify/Cargo.toml
 
 # Build GStreamer plugins written in Rust (optional with --no-default-features)
+# --config net.git-fetch-with-cli=true: Uses command-line git instead of  built-in libgit2 to fix OOM Problem (exit code: 137) 
 ENV DEST_DIR /target/gst-plugins-rs
 ENV CARGO_PROFILE_RELEASE_DEBUG false
 RUN export CSOUND_LIB_DIR="/usr/lib/$(uname -m)-linux-gnu" \
  && export PLUGINS_DIR=$(pkg-config --variable=pluginsdir gstreamer-1.0) \
  && export SO_SUFFIX=so \
- && cargo build --release --no-default-features \
+ && cargo build --release --no-default-features --config net.git-fetch-with-cli=true \
  # List of packages to build
     --package gst-plugin-spotify \
  # Use install command to create directory (-d), copy and print filenames (-v), and set attributes/permissions (-m)
