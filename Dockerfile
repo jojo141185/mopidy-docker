@@ -141,9 +141,8 @@ RUN git clone --depth 1 --single-branch -b ${IRIS_VERSION} https://github.com/ja
  # Copy Version file
  && cp /iris/VERSION /
 
-# Install mopidy-spotify-gstspotify (Hack, not released yet!)
-# (https://github.com/kingosticks/mopidy-spotify/tree/gstspotifysrc-hack)
-RUN git clone --depth 1 -b gstspotifysrc-hack https://github.com/kingosticks/mopidy-spotify.git mopidy-spotify \
+# Install Mopidy-Spotify
+RUN git clone --depth 1 -b master https://github.com/mopidy/mopidy-spotify.git mopidy-spotify \
  && cd mopidy-spotify \
  && python3 setup.py install \
  && cd .. \
