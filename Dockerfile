@@ -109,9 +109,9 @@ RUN curl -fsSL https://deb.nodesource.com/setup_14.x | bash - && \
 
 # Install mopidy and (optional) DLNA-server dleyna from apt.mopidy.com
 # see https://docs.mopidy.com/en/latest/installation/debian/
-RUN mkdir -p /usr/local/share/keyrings \
- && wget -q -O /usr/local/share/keyrings/mopidy-archive-keyring.gpg https://apt.mopidy.com/mopidy.gpg \
- && wget -q -O /etc/apt/sources.list.d/mopidy.list https://apt.mopidy.com/buster.list \
+RUN mkdir -p /etc/apt/keyrings \
+ && wget -q -O /etc/apt/keyrings/mopidy-archive-keyring.gpg https://apt.mopidy.com/mopidy.gpg \
+ && wget -q -O /etc/apt/sources.list.d/mopidy.list https://apt.mopidy.com/bullseye.list \
  && apt-get update \
  && apt-get install -y \ 
  	mopidy \
