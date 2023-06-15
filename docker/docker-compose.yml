@@ -1,15 +1,51 @@
-version: '3.3'
+version: '3.5'
 services:
     mopidy:
         container_name: mopidy
+        restart: always
+        
+        ## Run container as user 
+        # select specific privileged user
         user: root
+        #user: ${PUID}:${PGID}
+        
+        ## Add to audio group 
+        # change group name or id to your system's audio group
+        group_add:
+            - audio
+        
+        ## Add audio device 
+        # change to your system's audio device
         devices:
             - /dev/snd
+        
         volumes:
-            - '$PWD/config:/config'
-            #- '$PWD/media:/var/lib/mopidy/media:ro'
-            #- '$PWD/local:/var/lib/mopidy/local'
+            # Mopidy config files
+            - './config:/config'
+            
+            # Local media dir
+            #- './media:/var/lib/mopidy/media:ro'
+            
+            # Store mopidy library and images on host (persistent)
+            #- './local:/var/lib/mopidy/local'
+            
+            ## Host audio settings
+            # Pulseaudio
+            - /run/user/1000/pulse/native:/tmp/pulseaudio.socket
+            # Alsa sound
+            #- /etc/asound.conf:/etc/asound.conf
+            #- /usr/share/alsa:/usr/share/alsa
+            
         ports:
             - '6600:6600'
             - '6680:6680'
+            
         image: 'jojo141185/mopidy:latest'
+        
+        environment: 
+            # Host with pulseaudio
+            - PULSE_SERVER=unix:/tmp/pulseaudio.socket
+            - PULSE_COOKIE=/tmp/pulseaudio.cookie
+            
+            # Install additional pip packages
+            #- PIP_PACKAGES=Mopidy-Party Mopidy-TuneIn
