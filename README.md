@@ -85,7 +85,7 @@ ARGUMENT|DEFAULT|DESCRIPTION
 -p | 6600:6600 | (optional) Exposes MPD server to port 6600 on host (if you use for example ncmpcpp client).
 -p | 6680:6680 | (optional) Exposes HTTP server to port 6680 on host (if you use your browser as client).
 -p | 5555:5555/udp | (optional) Exposes UDP streaming on port 5555 for FIFE sink (e.g. for visualizers).
--e | PIP_PACKAGES | (optional) Environment variable to inject some pip packages and mopidy extensions (i.e. Mopidy-Tidal) on upstart of container.
+-e | PIP_PACKAGES= | (optional) Environment variable to inject some pip packages and mopidy extensions (i.e. Mopidy-Tidal) on upstart of container.
 
 Note:  
 
