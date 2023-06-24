@@ -19,16 +19,16 @@ USER root
 # Install all libraries and needs
 RUN apt update \
     && apt install -yq --no-install-recommends \
-    	git \
-	patch \
-	libgstreamer-plugins-base1.0-dev \
-	libgstreamer1.0-dev \
-    	libcsound64-dev \
-	libclang-11-dev \
- 	libpango1.0-dev  \
-	libdav1d-dev \
-	# libgtk-4-dev \ Only in bookworm
- && rm -rf /var/lib/apt/lists/*
+        git \
+        patch \
+        libgstreamer-plugins-base1.0-dev \
+        libgstreamer1.0-dev \
+        libcsound64-dev \
+        libclang-11-dev \
+        libpango1.0-dev  \
+        libdav1d-dev \
+        # libgtk-4-dev \ Only in bookworm
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/gst-plugins-rs
 
@@ -54,14 +54,14 @@ RUN sed -i 's/librespot = { version = "0.4", default-features = false }/librespo
 ENV DEST_DIR /target/gst-plugins-rs
 ENV CARGO_PROFILE_RELEASE_DEBUG false
 RUN export CSOUND_LIB_DIR="/usr/lib/$(uname -m)-linux-gnu" \
- && export PLUGINS_DIR=$(pkg-config --variable=pluginsdir gstreamer-1.0) \
- && export SO_SUFFIX=so \
- && cargo build --release --no-default-features --config net.git-fetch-with-cli=true \
- # List of packages to build
-    --package gst-plugin-spotify \
- # Use install command to create directory (-d), copy and print filenames (-v), and set attributes/permissions (-m)
- && install -v -d ${DEST_DIR}/${PLUGINS_DIR} \
- && install -v -m 755 target/release/*.${SO_SUFFIX} ${DEST_DIR}/${PLUGINS_DIR}
+    && export PLUGINS_DIR=$(pkg-config --variable=pluginsdir gstreamer-1.0) \
+    && export SO_SUFFIX=so \
+    && cargo build --release --no-default-features --config net.git-fetch-with-cli=true \
+        # List of packages to build
+        --package gst-plugin-spotify \
+    # Use install command to create directory (-d), copy and print filenames (-v), and set attributes/permissions (-m)
+    && install -v -d ${DEST_DIR}/${PLUGINS_DIR} \
+    && install -v -m 755 target/release/*.${SO_SUFFIX} ${DEST_DIR}/${PLUGINS_DIR}
 
 
 # --- Release Node ---
@@ -73,31 +73,31 @@ WORKDIR /
 
 # Install GStreamer and other required Debian packages
 RUN apt-get update \
- && apt-get install -y --no-install-recommends \
-    sudo \
-    build-essential \
-    curl \
-    git \
-    wget \
-    gnupg2 \
-    dumb-init \
-    graphviz-dev \
-    pulseaudio \
-    libasound2-dev \
-    libdbus-glib-1-dev \
-    libgirepository1.0-dev \
-    # Install Python
-    python3-dev \
-    python3-gst-1.0 \
-    python3-setuptools \
-    python3-pip \
-    # GStreamer (Plugins)
-    gstreamer1.0-plugins-good \
-    gstreamer1.0-plugins-bad \
-    gstreamer1.0-plugins-ugly \
-    gstreamer1.0-libav \
-    gstreamer1.0-pulseaudio \
- && rm -rf /var/lib/apt/lists/*
+    && apt-get install -y --no-install-recommends \
+        sudo \
+        build-essential \
+        curl \
+        git \
+        wget \
+        gnupg2 \
+        dumb-init \
+        graphviz-dev \
+        pulseaudio \
+        libasound2-dev \
+        libdbus-glib-1-dev \
+        libgirepository1.0-dev \
+        # Install Python
+        python3-dev \
+        python3-gst-1.0 \
+        python3-setuptools \
+        python3-pip \
+        # GStreamer (Plugins)
+        gstreamer1.0-plugins-good \
+        gstreamer1.0-plugins-bad \
+        gstreamer1.0-plugins-ugly \
+        gstreamer1.0-libav \
+        gstreamer1.0-pulseaudio \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy builded target data from Builder DEST_DIR to root
 # Note: target directory tree links directly to $GST_PLUGIN_PATH
@@ -110,12 +110,12 @@ RUN curl -fsSL https://deb.nodesource.com/setup_14.x | bash - && \
 # Install mopidy and (optional) DLNA-server dleyna from apt.mopidy.com
 # see https://docs.mopidy.com/en/latest/installation/debian/
 RUN mkdir -p /etc/apt/keyrings \
- && wget -q -O /etc/apt/keyrings/mopidy-archive-keyring.gpg https://apt.mopidy.com/mopidy.gpg \
- && wget -q -O /etc/apt/sources.list.d/mopidy.list https://apt.mopidy.com/bullseye.list \
- && apt-get update \
- && apt-get install -y \ 
- 	mopidy \
- && rm -rf /var/lib/apt/lists/*
+    && wget -q -O /etc/apt/keyrings/mopidy-archive-keyring.gpg https://apt.mopidy.com/mopidy.gpg \
+    && wget -q -O /etc/apt/sources.list.d/mopidy.list https://apt.mopidy.com/bullseye.list \
+    && apt-get update \
+    && apt-get install -y \ 
+        mopidy \
+    && rm -rf /var/lib/apt/lists/*
 
 # Upgrade Python package manager pip
 # https://pypi.org/project/pip/
@@ -128,33 +128,32 @@ RUN python3 -m pip install --upgrade pip
 ADD https://api.github.com/repos/jaedb/Iris/git/refs/heads/master version.json
 ENV IRIS_VERSION=develop
 RUN git clone --depth 1 --single-branch -b ${IRIS_VERSION} https://github.com/jaedb/Iris.git /iris \
- && cd /iris \
- && npm install \
- && npm run prod \
- && python3 setup.py develop \
- && mkdir -p /var/lib/mopidy/.config \
- && ln -s /config /var/lib/mopidy/.config/mopidy \
- # Allow mopidy user to run system commands (restart, local scan, etc)
- && echo "mopidy ALL=NOPASSWD: /iris/mopidy_iris/system.sh" >> /etc/sudoers \
- # Enable container mode (disable restart option, etc.)
- && echo "1" >> /IS_CONTAINER \
- # Copy Version file
- && cp /iris/VERSION /
+    && cd /iris \
+    && npm install \
+    && npm run prod \
+    && python3 setup.py develop \
+    && mkdir -p /var/lib/mopidy/.config \
+    && ln -s /config /var/lib/mopidy/.config/mopidy \
+    # Allow mopidy user to run system commands (restart, local scan, etc)
+    && echo "mopidy ALL=NOPASSWD: /iris/mopidy_iris/system.sh" >> /etc/sudoers \
+    # Enable container mode (disable restart option, etc.)
+    && echo "1" >> /IS_CONTAINER \
+    # Copy Version file
+    && cp /iris/VERSION /
 
 # Install Mopidy-Spotify
-RUN git clone --depth 1 -b master https://github.com/mopidy/mopidy-spotify.git mopidy-spotify \
- && cd mopidy-spotify \
- && python3 setup.py install \
- && cd .. \
- && rm -rf mopidy-spotify
+RUN git clone --depth 1 --single-branch -b main https://github.com/mopidy/mopidy-spotify.git mopidy-spotify \
+    && cd mopidy-spotify \
+    && python3 setup.py install \
+    && cd .. \
+    && rm -rf mopidy-spotify
 
-# Install mopidy-radionet (PR API-Fixed)
-# (https://github.com/plintx/mopidy-radionet/pull/18)
-RUN git clone --depth 1 -b master https://github.com/Emrvb/mopidy-radionet.git mopidy-radionet \
- && cd mopidy-radionet \
- && python3 setup.py install \
- && cd .. \
- && rm -rf mopidy-radionet
+# Install mopidy-radionet
+RUN git clone --depth 1 --single-branch -b master https://github.com/plintx/mopidy-radionet.git mopidy-radionet \
+    && cd mopidy-radionet \
+    && python3 setup.py install \
+    && cd .. \
+    && rm -rf mopidy-radionet
 
 # Install additional mopidy extensions and Python dependencies via pip
 COPY requirements.txt .
@@ -162,9 +161,9 @@ RUN python3 -m pip install -r requirements.txt
 
 # Cleanup
 RUN apt-get clean all \
- && rm -rf /var/lib/apt/lists/* \
- && rm -rf /root/.cache \
- && rm -rf /iris/node_modules
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /root/.cache \
+    && rm -rf /iris/node_modules
 
 # Start helper script.
 COPY docker/entrypoint.sh /entrypoint.sh
@@ -179,10 +178,10 @@ COPY docker/mopidy/pulse-client.conf /etc/pulse/client.conf
 # RUN useradd -ms /bin/bash mopidy
 ENV HOME=/var/lib/mopidy
 RUN set -ex \
- && usermod -G audio,sudo,pulse-access mopidy \
- && mkdir /var/lib/mopidy/local \
- && chown mopidy:audio -R $HOME /entrypoint.sh /iris \
- && chmod go+rwx -R $HOME /entrypoint.sh /iris
+    && usermod -G audio,sudo,pulse-access mopidy \
+    && mkdir /var/lib/mopidy/local \
+    && chown mopidy:audio -R $HOME /entrypoint.sh /iris \
+    && chmod go+rwx -R $HOME /entrypoint.sh /iris
 
 # Runs as mopidy user by default.
 USER mopidy:audio
