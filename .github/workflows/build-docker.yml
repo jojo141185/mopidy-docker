@@ -42,6 +42,33 @@ jobs:
           
         # Steps represent a sequence of tasks that will be executed as part of the job
         steps:
+          - name: Get GitHub Actions runner OS information
+            uses: kenchan0130/actions-system-info@master
+            id: system-info
+
+          - name: Output System information
+            run: |
+              OUTPUTS=(
+                "CPU Core: ${{ steps.system-info.outputs.cpu-core }}"
+                "CPU Model: ${{ steps.system-info.outputs.cpu-model }}"
+                "Hostname: ${{ steps.system-info.outputs.hostname }}"
+                "Kernel release: ${{ steps.system-info.outputs.kernel-release }}"
+                "Kernel version: ${{ steps.system-info.outputs.kernel-version }}"
+                "Name: ${{ steps.system-info.outputs.name }}"
+                "Platform: ${{ steps.system-info.outputs.platform }}"
+                "Release: ${{ steps.system-info.outputs.release }}"
+                "Total memory bytes: ${{ steps.system-info.outputs.totalmem }}"
+              )
+    
+              IS_EMPTY_OUTOUT=false
+              for OUTPUT in "${OUTPUTS[@]}";do
+                echo "${OUTPUT}"
+                OUT=$(echo ${OUTPUT} | cut -d ':' -f2- | xargs)
+              done
+
+              echo "Disk Space:"
+              df -h
+
           # Github action to get branch or tag information without the /ref/* prefix
           - name: Get branch names
             id: branch-name
@@ -82,21 +109,22 @@ jobs:
 
           # Hack to fix Error "Value too large for defined data type;" on arm/v7 and linux/386  
           # https://github.com/crazy-max/ghaction-docker-buildx/issues/172
-          # 1. Create Swapfile of 22GB (1MBx22K) size to increase hosts (virtual) ram
-          # 2. Mount tempfs with max. size of Swapfile + host's Phys.RAM (max ~6 GB) to dockers filesystem /var/lib/docker (volumes, etc.)
-          # Note: If tempfs is too small for build the runner will receive a shutdown signal
-          - name: Hack docker filesystem to create small tmpfs for docker cache
+          # 1. Create Swapfile of 21GB (1MBx21K) size to increase hosts (virtual) ram
+          # 2. Mount tmpfs with max. size of Swapfile + host's Phys.RAM (max ~6 GB) to dockers filesystem /var/lib/docker (volumes, etc.)
+          # Note: If tmpfs is too small for build the runner will receive a shutdown signal
+          - name: Hack docker filesystem to create tmpfs for docker cache
             run: |
               df -h
               sudo swapon --show
-              sudo dd if=/dev/zero of=/swapfile1 bs=1M count=22K 
+              sudo dd if=/dev/zero of=/swapfile1 bs=1M count=21K 
               sudo chmod 600 /swapfile1
               sudo mkswap /swapfile1
               sudo swapon /swapfile1
               sudo swapon --show
               sudo free -h
               sudo systemctl stop docker
-              sudo mount -t tmpfs -o size=25G tmpfs /var/lib/docker
+              sudo mount -t tmpfs -o size=24G tmpfs /var/lib/docker
+              echo "Disk Space (with tmpfs):"
               df -h
               sudo systemctl start docker
       
