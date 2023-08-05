@@ -42,6 +42,33 @@ jobs:
           
         # Steps represent a sequence of tasks that will be executed as part of the job
         steps:
+          - name: Get GitHub Actions runner OS information
+            uses: kenchan0130/actions-system-info@master
+            id: system-info
+
+          - name: Output System information
+            run: |
+              OUTPUTS=(
+                "CPU Core: ${{ steps.system-info.outputs.cpu-core }}"
+                "CPU Model: ${{ steps.system-info.outputs.cpu-model }}"
+                "Hostname: ${{ steps.system-info.outputs.hostname }}"
+                "Kernel release: ${{ steps.system-info.outputs.kernel-release }}"
+                "Kernel version: ${{ steps.system-info.outputs.kernel-version }}"
+                "Name: ${{ steps.system-info.outputs.name }}"
+                "Platform: ${{ steps.system-info.outputs.platform }}"
+                "Release: ${{ steps.system-info.outputs.release }}"
+                "Total memory bytes: ${{ steps.system-info.outputs.totalmem }}"
+              )
+    
+              IS_EMPTY_OUTOUT=false
+              for OUTPUT in "${OUTPUTS[@]}";do
+                echo "${OUTPUT}"
+                OUT=$(echo ${OUTPUT} | cut -d ':' -f2- | xargs)
+              done
+
+              echo "Disk Space:"
+              df -h
+
           # Github action to get branch or tag information without the /ref/* prefix
           - name: Get branch names
             id: branch-name
@@ -76,29 +103,45 @@ jobs:
             with:
               buildkitd-flags: "--debug"
 
-          #   # GitHub Action to free disk space on Ubuntu action runners.
+          # # GitHub Action to free disk space on Ubuntu action runners.
           # - name: Free Disk Space (Ubuntu)
           #   uses: jlumbroso/free-disk-space@main
 
-          # Hack to fix Error "Value too large for defined data type;" on arm/v7 and linux/386  
-          # https://github.com/crazy-max/ghaction-docker-buildx/issues/172
-          # 1. Create Swapfile of 22GB (1MBx22K) size to increase hosts (virtual) ram
-          # 2. Mount tempfs with max. size of Swapfile + host's Phys.RAM (max ~6 GB) to dockers filesystem /var/lib/docker (volumes, etc.)
-          # Note: If tempfs is too small for build the runner will receive a shutdown signal
-          - name: Hack docker filesystem to create small tmpfs for docker cache
+          # Hack to fix Errors on arm/v7 and linux/386 
+          # - "Value too large for defined data type;" https://github.com/crazy-max/ghaction-docker-buildx/issues/172
+          # - "object not found - no match for id (SOME_HASH)" on git update
+          # Steps:
+          # 1. Create larger Swapfile to increase hosts (virtual) ram. Max size is limited by free disk space of runner ~20GB (1MBx20K) 
+          # 2. Mount tmpfs to dockers filesystem /var/lib/docker (volumes, etc.) with max. size of Swapfile + host's free phys.RAM
+          # Note: If tmpfs is too small for build the runner will receive a shutdown signal. Free ram max. ~1.5 GB (6.8 GB phys - 5.5 GB def. tempfs) 
+          - name: Hack docker filesystem to create tmpfs for docker cache
             run: |
+              echo "---- Initial System Status ----"
+              echo "Disk Space:"
               df -h
+              echo "Swap state:"
               sudo swapon --show
-              sudo dd if=/dev/zero of=/swapfile1 bs=1M count=22K 
-              sudo chmod 600 /swapfile1
-              sudo mkswap /swapfile1
-              sudo swapon /swapfile1
-              sudo swapon --show
+              echo "RAM status:"
               sudo free -h
+              echo "-------------------------------"
+
+              sudo dd if=/dev/zero of=/swapfileLarge bs=1M count=20K 
+              sudo chmod 600 /swapfileLarge
+              sudo mkswap /swapfileLarge
+              sudo swapon /swapfileLarge
+              sudo swapoff /mnt/swapfile && sudo rm /mnt/swapfile
               sudo systemctl stop docker
-              sudo mount -t tmpfs -o size=25G tmpfs /var/lib/docker
-              df -h
+              sudo mount -t tmpfs -o size=22G tmpfs /var/lib/docker
               sudo systemctl start docker
+
+              echo "---- System Status after Processing ----"
+              echo "Disk Space:"
+              df -h
+              echo "Swap state:"
+              sudo swapon --show
+              echo "RAM status:"
+              sudo free -h
+              echo "-----------------------------------------"
       
           # GitHub Action to login to DockerHub.
           -   name: Login to DockerHub
