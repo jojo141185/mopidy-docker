@@ -60,7 +60,7 @@ ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL sparse
 RUN export CSOUND_LIB_DIR="/usr/lib/$(uname -m)-linux-gnu" \
     && export PLUGINS_DIR=$(pkg-config --variable=pluginsdir gstreamer-1.0) \
     && export SO_SUFFIX=so \
-    && cargo build --release --no-default-features --config net.git-fetch-with-cli=true \
+    && cargo build --release --no-default-features \
         # List of packages to build
         --package gst-plugin-spotify \
     # Use install command to create directory (-d), copy and print filenames (-v), and set attributes/permissions (-m)
