@@ -39,10 +39,6 @@ jobs:
         # Set environment variables
         env:
           DOCKERHUB_SLUG: ${{secrets.DOCKERHUB_USERNAME}}/mopidy
-          # Since cargo supports the sparse registry protocol, enabling it is the easiest 
-          # fix for Error "Value too large for defined data type;" on arm/v7 and linux/386
-          # https://github.com/rust-lang/cargo/issues/8719
-          CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
           
         # Steps represent a sequence of tasks that will be executed as part of the job
         steps:
