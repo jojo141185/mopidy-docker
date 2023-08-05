@@ -49,18 +49,23 @@ RUN git clone -c advice.detachedHead=false \
 # EXPERIMENTAL: For gstreamer-spotify set upgraded version number of dependency librespot to 0.4.2 
 RUN sed -i 's/librespot = { version = "0.4", default-features = false }/librespot = { version = "0.4.2", default-features = false }/g' audio/spotify/Cargo.toml
 
-# Build GStreamer plugins written in Rust (optional with --no-default-features)
-# --config net.git-fetch-with-cli=true: Uses command-line git instead of  built-in libgit2 to fix OOM Problem (exit code: 137) 
-ENV DEST_DIR /target/gst-plugins-rs
-ENV CARGO_PROFILE_RELEASE_DEBUG false
+# Build GStreamer plugins written in Rust
+
+# Set Cargo environment variables
 # Enabling cargo's sparse registry protocol is the easiest fix for 
 # Error "Value too large for defined data type;" on arm/v7 and linux/386
 # https://github.com/rust-lang/cargo/issues/8719
 #ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL sparse
+ENV DEST_DIR /target/gst-plugins-rs
+ENV CARGO_PROFILE_RELEASE_DEBUG false
+# Cargo Build, with options:
+# --release: do a release (not dev) build
+# --no-default-features: disables the default features of the package (optional)
+# --config net.git-fetch-with-cli=true: Uses command-line git instead of  built-in libgit2 to fix OOM Problem (exit code: 137) 
 RUN export CSOUND_LIB_DIR="/usr/lib/$(uname -m)-linux-gnu" \
     && export PLUGINS_DIR=$(pkg-config --variable=pluginsdir gstreamer-1.0) \
     && export SO_SUFFIX=so \
-    && cargo build --release --no-default-features \
+    && cargo build --release --no-default-features --config net.git-fetch-with-cli=true \
         # List of packages to build
         --package gst-plugin-spotify \
     # Use install command to create directory (-d), copy and print filenames (-v), and set attributes/permissions (-m)

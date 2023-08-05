@@ -107,39 +107,41 @@ jobs:
           # - name: Free Disk Space (Ubuntu)
           #   uses: jlumbroso/free-disk-space@main
 
-          # # Hack to fix Error "Value too large for defined data type;" on arm/v7 and linux/386  
-          # # https://github.com/crazy-max/ghaction-docker-buildx/issues/172
-          # # 1. Create larger Swapfile of 20GB (1MBx20K) size to increase hosts (virtual) ram
-          # # 2. Mount tmpfs with max. size of Swapfile + host's free phys.RAM max. ~1.5 GB (6.8 GB phys - 5.5 GB def. tempfs) to dockers filesystem /var/lib/docker (volumes, etc.)
-          # # Note: If tmpfs is too small for build the runner will receive a shutdown signal
-          # - name: Hack docker filesystem to create tmpfs for docker cache
-          #   run: |
-          #     echo "---- Initial System Status ----"
-          #     echo "Disk Space:"
-          #     df -h
-          #     echo "Swap state:"
-          #     sudo swapon --show
-          #     echo "RAM status:"
-          #     sudo free -h
-          #     echo "-------------------------------"
+          # Hack to fix Errors on arm/v7 and linux/386 
+          # - "Value too large for defined data type;" https://github.com/crazy-max/ghaction-docker-buildx/issues/172
+          # - "object not found - no match for id (SOME_HASH)" on git update
+          # Steps:
+          # 1. Create larger Swapfile to increase hosts (virtual) ram. Max size is limited by free disk space of runner ~20GB (1MBx20K) 
+          # 2. Mount tmpfs to dockers filesystem /var/lib/docker (volumes, etc.) with max. size of Swapfile + host's free phys.RAM
+          # Note: If tmpfs is too small for build the runner will receive a shutdown signal. Free ram max. ~1.5 GB (6.8 GB phys - 5.5 GB def. tempfs) 
+          - name: Hack docker filesystem to create tmpfs for docker cache
+            run: |
+              echo "---- Initial System Status ----"
+              echo "Disk Space:"
+              df -h
+              echo "Swap state:"
+              sudo swapon --show
+              echo "RAM status:"
+              sudo free -h
+              echo "-------------------------------"
 
-          #     sudo dd if=/dev/zero of=/swapfileLarge bs=1M count=20K 
-          #     sudo chmod 600 /swapfileLarge
-          #     sudo mkswap /swapfileLarge
-          #     sudo swapon /swapfileLarge
-          #     sudo swapoff /mnt/swapfile && sudo rm /mnt/swapfile
-          #     sudo systemctl stop docker
-          #     sudo mount -t tmpfs -o size=22G tmpfs /var/lib/docker
-          #     sudo systemctl start docker
+              sudo dd if=/dev/zero of=/swapfileLarge bs=1M count=20K 
+              sudo chmod 600 /swapfileLarge
+              sudo mkswap /swapfileLarge
+              sudo swapon /swapfileLarge
+              sudo swapoff /mnt/swapfile && sudo rm /mnt/swapfile
+              sudo systemctl stop docker
+              sudo mount -t tmpfs -o size=22G tmpfs /var/lib/docker
+              sudo systemctl start docker
 
-          #     echo "---- System Status after Processing ----"
-          #     echo "Disk Space:"
-          #     df -h
-          #     echo "Swap state:"
-          #     sudo swapon --show
-          #     echo "RAM status:"
-          #     sudo free -h
-          #     echo "-----------------------------------------"
+              echo "---- System Status after Processing ----"
+              echo "Disk Space:"
+              df -h
+              echo "Swap state:"
+              sudo swapon --show
+              echo "RAM status:"
+              sudo free -h
+              echo "-----------------------------------------"
       
           # GitHub Action to login to DockerHub.
           -   name: Login to DockerHub
