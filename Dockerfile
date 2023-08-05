@@ -56,7 +56,7 @@ ENV CARGO_PROFILE_RELEASE_DEBUG false
 # Enabling cargo's sparse registry protocol is the easiest fix for 
 # Error "Value too large for defined data type;" on arm/v7 and linux/386
 # https://github.com/rust-lang/cargo/issues/8719
-ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL sparse
+#ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL sparse
 RUN export CSOUND_LIB_DIR="/usr/lib/$(uname -m)-linux-gnu" \
     && export PLUGINS_DIR=$(pkg-config --variable=pluginsdir gstreamer-1.0) \
     && export SO_SUFFIX=so \
