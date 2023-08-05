@@ -70,8 +70,8 @@ RUN export CSOUND_LIB_DIR="/usr/lib/$(uname -m)-linux-gnu" \
         --package gst-plugin-spotify \
     # Use install command to create directory (-d), copy and print filenames (-v), and set attributes/permissions (-m)
     && install -v -d ${DEST_DIR}/${PLUGINS_DIR} \
-    && install -v -m 755 target/release/*.${SO_SUFFIX} ${DEST_DIR}/${PLUGINS_DIR}
-
+    && install -v -m 755 target/release/*.${SO_SUFFIX} ${DEST_DIR}/${PLUGINS_DIR} \
+    && cargo clean
 
 # --- Release Node ---
 FROM debian:bullseye-slim as Release
