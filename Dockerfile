@@ -2,9 +2,13 @@
 FROM rust:slim-bullseye AS Builder
 LABEL org.opencontainers.image.authors="jojo141185"
 LABEL org.opencontainers.image.source="https://github.com/jojo141185/mopidy-docker/"
+# Automatic platform ARGs in the global scope
+# This feature is only available when using the BuildKit backend.
 ARG TARGETPLATFORM
 ARG TARGETARCH
 ARG TARGETVARIANT
+# Define Image version [latest, develop, release]
+ARG IMG_VERSION 
 
 # Print Info about current build Target
 RUN printf "I'm building for TARGETPLATFORM=${TARGETPLATFORM}" \
@@ -13,12 +17,16 @@ RUN printf "I'm building for TARGETPLATFORM=${TARGETPLATFORM}" \
     && printf "With uname -s : " && uname -s \
     && printf "and  uname -m : " && uname -mm
 
+RUN echo "Build Image in version: $IMG_VERSION"
+
 # Switch to the root user while we do our changes
 USER root
 
 # Install all libraries and needs
 RUN apt update \
     && apt install -yq --no-install-recommends \
+        curl \
+        jq \
         git \
         patch \
         libgstreamer-plugins-base1.0-dev \
@@ -40,13 +48,26 @@ WORKDIR /usr/src/gst-plugins-rs
 #         *) 		 echo "No patch needed for ${TARGETPLATFORM}.";; \
 #    esac
 
-# Clone source of gst-plugins-rs to workdir
-ARG GST_PLUGINS_RS_TAG=main
-RUN git clone -c advice.detachedHead=false \
+# Get source of GStreamer Plugins gst-plugins-rs
+# - Select the branch or tag to use
+RUN if [ "$IMG_VERSION" = "latest" ]; then \
+        GST_PLUGINS_RS_TAG=main; \
+    elif [ "$IMG_VERSION" = "develop" ]; then \
+        GST_PLUGINS_RS_TAG=main; \
+    elif [ "$IMG_VERSION" = "release" ]; then \
+        GST_PLUGINS_RS_TAG=$(curl -s https://gitlab.freedesktop.org/api/v4/projects/gstreamer%2Fgst-plugins-rs/repository/tags | jq -r '.[0].name'); \
+    else \
+        echo "Invalid version info for gst-plugins-rs: $IMG_VERSION"; \
+        exit 1; \
+    fi \ 
+    && echo "Selected branch or tag for gst-plugins-rs: $GST_PLUGINS_RS_TAG" \
+    # - Clone repository of gst-plugins-rs to workdir
+    && git clone -c advice.detachedHead=false \
 	--single-branch --depth 1 \
 	--branch ${GST_PLUGINS_RS_TAG} \
 	https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs.git ./
-# EXPERIMENTAL: For gstreamer-spotify set upgraded version number of dependency librespot to 0.4.2 
+
+# - EXPERIMENTAL: For gstreamer-spotify set upgraded version number of dependency librespot to 0.4.2 
 RUN sed -i 's/librespot = { version = "0.4", default-features = false }/librespot = { version = "0.4.2", default-features = false }/g' audio/spotify/Cargo.toml
 
 # Build GStreamer plugins written in Rust
@@ -75,6 +96,8 @@ RUN export CSOUND_LIB_DIR="/usr/lib/$(uname -m)-linux-gnu" \
 
 # --- Release Node ---
 FROM debian:bullseye-slim as Release
+# Define Image version [latest, develop, release]
+ARG IMG_VERSION 
 
 # Switch to the root user while we do our changes
 USER root
@@ -85,7 +108,10 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         sudo \
         build-essential \
+        nodejs \
+        npm \
         curl \
+        jq \
         git \
         wget \
         gnupg2 \
@@ -112,9 +138,9 @@ RUN apt-get update \
 # Note: target directory tree links directly to $GST_PLUGIN_PATH
 COPY --from=Builder /target/gst-plugins-rs/ /
 
-# Install Node, to build Iris JS application
-RUN curl -fsSL https://deb.nodesource.com/setup_14.x | bash - && \
-    apt-get install -y nodejs
+# # Install Node, to build Iris JS application
+# RUN curl -fsSL https://deb.nodesource.com/setup_14.x | bash - && \
+#     apt-get install -y nodejs
 
 # Install mopidy and (optional) DLNA-server dleyna from apt.mopidy.com
 # see https://docs.mopidy.com/en/latest/installation/debian/
@@ -135,8 +161,20 @@ RUN python3 -m pip install --upgrade pip
 # installing using pip.
 # Note: ADD helps prevent RUN caching issues. When HEAD changes in repo, our cache will be invalidated!
 ADD https://api.github.com/repos/jaedb/Iris/git/refs/heads/master version.json
-ENV IRIS_VERSION=develop
-RUN git clone --depth 1 --single-branch -b ${IRIS_VERSION} https://github.com/jaedb/Iris.git /iris \
+
+RUN if [ "$IMG_VERSION" = "latest" ]; then \
+        IRIS_BRANCH_OR_TAG=master; \
+    elif [ "$IMG_VERSION" = "develop" ]; then \
+        IRIS_BRANCH_OR_TAG=develop; \
+    elif [ "$IMG_VERSION" = "release" ]; then \
+        IRIS_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/jaedb/Iris/releases/latest | jq -r .tag_name); \
+    else \
+        echo "Invalid version info for Iris: $IMG_VERSION"; \
+        exit 1; \
+    fi \
+    && echo "Selected branch or tag for iris: $IRIS_BRANCH_OR_TAG" \
+    # Clone Iris to workdir and install in development mode
+    && git clone --depth 1 --single-branch -b ${IRIS_BRANCH_OR_TAG} https://github.com/jaedb/Iris.git /iris \
     && cd /iris \
     && npm install \
     && npm run prod \

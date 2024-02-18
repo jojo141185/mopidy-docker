@@ -33,9 +33,13 @@ Here is the [repository](https://hub.docker.com/repository/docker/jojo141185/mop
 
 Getting the image from DockerHub is as simple as typing:
 
-`docker pull jojo141185/mopidy:latest`
+`docker pull jojo141185/mopidy:release`
 
-You may want to pull a probably more stable/tested image with tag "edge" or the most recent version from develop branch tagged with "develop".
+You can pull other, probably less stable image builds by the following tags
+TAG|DESCRIPTION
+---|---
+latest | Image build from main / master branches
+develop | Image build from develop branches (probably untested)
 
 ## Usage
 
@@ -72,7 +76,7 @@ Start the mopidy docker container with the docker run command:
         -v "$PWD/media:/var/lib/mopidy/media:ro" \
         -v "$PWD/local:/var/lib/mopidy/local" \
         -p 6600:6600 -p 6680:6680 \
-        jojo141185/mopidy:latest
+        jojo141185/mopidy:release
 
 The following table describes the docker arguments and environment variables:
 ARGUMENT|DEFAULT|DESCRIPTION
