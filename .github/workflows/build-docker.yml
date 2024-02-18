@@ -32,12 +32,6 @@ on:
 # Set environment variables
 env:
   DOCKERHUB_SLUG: ${{secrets.DOCKERHUB_USERNAME}}/mopidy
-  TAGS: |
-    type=schedule,pattern=latest
-    type=semver,pattern={{version}}
-    type=edge,branch=${{ github.event.repository.default_branch }}
-    type=raw,value=develop,enable=${{ github.ref == format('refs/heads/{0}', 'develop') }}
-    type=raw,value=test,enable=${{ github.ref_name != github.event.repository.default_branch && github.ref != format('refs/heads/{0}', 'develop') }}
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel (matrix)
 jobs:
@@ -56,10 +50,14 @@ jobs:
           - linux/amd64
           - linux/arm64
           - linux/arm/v7
+        image:
+          - latest
+          - develop
+          - release
       
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Store current platform from matrix as variable $PLATFORM_PAIR
+      # Store current platform from matrix as variable $PLATFORM_PAIR (with "/" replaced by "-")
       - name: Prepare
         run: |
           platform=${{ matrix.platform }}
@@ -133,6 +131,10 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           images: ${{ env.DOCKERHUB_SLUG }}
+          labels: |
+            org.opencontainers.image.title=${{ env.DOCKERHUB_SLUG }}
+            org.opencontainers.image.description='Mopidy music server with Iris Web-UI, Spotify support and many other extensions.'
+            org.opencontainers.image.vendor=${{secrets.DOCKERHUB_USERNAME}}
 
       # GitHub Action to login to DockerHub.
       - name: Login to DockerHub
@@ -150,37 +152,47 @@ jobs:
           context: .
           file: ./Dockerfile
           platforms: ${{ matrix.platform }}
-          labels: |
-            ${{ steps.docker_meta.outputs.labels }}
-            org.opencontainers.image.title=${{ env.DOCKERHUB_SLUG }}
-            org.opencontainers.image.description='Mopidy music server with Iris Web-UI, Spotify support and many other extensions.'
-            org.opencontainers.image.vendor=${{secrets.DOCKERHUB_USERNAME}}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          provenance: false
+          labels: ${{ steps.docker_meta.outputs.labels }}
+          tags: ${{ env.DOCKERHUB_SLUG }}
+          cache-from: type=gha,scope=${{ github.repository }}-${{ github.ref_name }}-${{ matrix.platform }}-${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ github.repository }}-${{ github.ref_name }}-${{ matrix.platform }}-${{ matrix.image }}
           outputs: type=image,name=${{ env.DOCKERHUB_SLUG }},push-by-digest=true,name-canonical=true,push=true
           build-args: |
-            VERSION=${{ steps.docker_meta.outputs.version }}
+            IMG_VERSION=${{ matrix.image }}
             BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
             VCS_REF=${GITHUB_SHA::8}
 
       # Export digest and store in GitHub artefact storage for later use in other jobs
       - name: Export digest
         run: |
-          mkdir -p /tmp/digests
+          mkdir -p /tmp/digests/${{ matrix.image }}
           digest="${{ steps.docker_build.outputs.digest }}"
-          touch "/tmp/digests/${digest#sha256:}"
+          touch "/tmp/digests/${{ matrix.image }}/${digest#sha256:}"
 
       - name: Upload digest
         uses: actions/upload-artifact@v4
         with:
-          name: digests-${{ env.PLATFORM_PAIR }}
-          path: /tmp/digests/*
+          name: digests-${{ matrix.image }}-${{ env.PLATFORM_PAIR }}
+          path: /tmp/digests/${{ matrix.image }}/*
           if-no-files-found: error
           retention-days: 1
+
+      - name: Clear digest
+        run: |
+          rm -rf /tmp/digests/${{ matrix.image }}
 
   # This merge job will catch all digests from the build jobs, create a manifest list and push it to Docker Hub
   merge:
     if: ${{ github.event_name != 'pull_request' }}
+    name: Merge Docker manifests
+    strategy:
+      fail-fast: false
+      matrix:
+        image: 
+          - latest
+          - develop
+          - release
     runs-on: ubuntu-latest
     needs:
       - build
@@ -189,8 +201,8 @@ jobs:
       - name: Download digests
         uses: actions/download-artifact@v4
         with:
-          path: /tmp/digests
-          pattern: digests-*
+          path: /tmp/digests/${{ matrix.image }}
+          pattern: digests-${{ matrix.image }}-*
           merge-multiple: true
 
       # GitHub Action to set up Docker Buildx.
@@ -203,7 +215,10 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.DOCKERHUB_SLUG }}
-          tags: ${{ env.TAGS }}
+          tags: |
+            type=raw,value=${{ matrix.image }},enable=${{ github.ref_name == github.event.repository.default_branch }}
+            type=raw,value=dev_${{ matrix.image }},enable=${{ github.ref == format('refs/heads/{0}', 'develop') }}
+            type=raw,value=test_${{ matrix.image }},enable=${{ github.ref_name != github.event.repository.default_branch && github.ref != format('refs/heads/{0}', 'develop') }}
 
       # GitHub Action to login to DockerHub.
       - name: Login to Docker Hub
@@ -214,9 +229,11 @@ jobs:
 
       # Create and push manifest list
       - name: Create manifest list and push
-        working-directory: /tmp/digests
+        working-directory: /tmp/digests/${{ matrix.image }}
+        # Extract all tags from JSON-Query $DOCKER_METADATA_OUTPUT_JSON: -t tag1 -t tag2 ...
+        # Add ${{ env.DOCKERHUB_SLUG }}@sha256:digest1 sha256:digest2 ... 
         run: |
-          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< '${{ steps.meta.outputs.json }}') \
             $(printf '${{ env.DOCKERHUB_SLUG }}@sha256:%s ' *)
 
       # GitHub Action to build and push Docker images with Buildx.
