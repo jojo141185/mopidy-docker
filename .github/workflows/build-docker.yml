@@ -56,7 +56,6 @@ jobs:
           - linux/amd64
           - linux/arm64
           - linux/arm/v7
-          - linux/i386
       
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
