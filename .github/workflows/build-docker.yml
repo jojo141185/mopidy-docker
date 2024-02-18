@@ -8,7 +8,7 @@ on:
       logLevel:
         description: Log level     
         required: false
-        default: warning
+        default: debug
   push:
     branches:
       - main
@@ -29,159 +29,202 @@ on:
   schedule:
     - cron: '0 5 * * *' # everyday at 5am
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+# Set environment variables
+env:
+  DOCKERHUB_SLUG: ${{secrets.DOCKERHUB_USERNAME}}/mopidy
+  TAGS: |
+    type=schedule,pattern=latest
+    type=semver,pattern={{version}}
+    type=edge,branch=${{ github.event.repository.default_branch }}
+    type=raw,value=develop,enable=${{ github.ref == format('refs/heads/{0}', 'develop') }}
+    type=raw,value=test,enable=${{ github.ref_name != github.event.repository.default_branch }}
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel (matrix)
 jobs:
-    # This workflow contains a single job called "release"
-    release:
-        # The type of runner that the job will run on
-        runs-on: ubuntu-latest
-        
-        # Set environment variables
-        env:
-          DOCKERHUB_SLUG: ${{secrets.DOCKERHUB_USERNAME}}/mopidy
-          
-        # Steps represent a sequence of tasks that will be executed as part of the job
-        steps:
-          - name: Get GitHub Actions runner OS information
-            uses: kenchan0130/actions-system-info@master
-            id: system-info
-
-          - name: Output System information
-            run: |
-              OUTPUTS=(
-                "CPU Core: ${{ steps.system-info.outputs.cpu-core }}"
-                "CPU Model: ${{ steps.system-info.outputs.cpu-model }}"
-                "Hostname: ${{ steps.system-info.outputs.hostname }}"
-                "Kernel release: ${{ steps.system-info.outputs.kernel-release }}"
-                "Kernel version: ${{ steps.system-info.outputs.kernel-version }}"
-                "Name: ${{ steps.system-info.outputs.name }}"
-                "Platform: ${{ steps.system-info.outputs.platform }}"
-                "Release: ${{ steps.system-info.outputs.release }}"
-                "Total memory bytes: ${{ steps.system-info.outputs.totalmem }}"
-              )
+  # Build docker image for each platform on a dedicated runner using the matrix strategy and push the image by digest
+  # see https://docs.docker.com/build/ci/github-actions/multi-platform/#distribute-build-across-multiple-runners
+  build:
+    name: Build
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
     
-              IS_EMPTY_OUTOUT=false
-              for OUTPUT in "${OUTPUTS[@]}";do
-                echo "${OUTPUT}"
-                OUT=$(echo ${OUTPUT} | cut -d ':' -f2- | xargs)
-              done
-
-              echo "Disk Space:"
-              df -h
-
-          # Github action to get branch or tag information without the /ref/* prefix
-          - name: Get branch names
-            id: branch-name
-            uses: tj-actions/branch-names@v6
-
-          # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-          - name: Checkout
-            uses: actions/checkout@v3
-
-          # GitHub Action to extract metadata (tags, labels) for Docker.
-          - name: Docker meta
-            id: docker_meta
-            uses: docker/metadata-action@v4
-            with:
-              github-token: ${{ secrets.GITHUB_TOKEN }}
-              images: |
-                ${{ env.DOCKERHUB_SLUG }}
-              tags: |
-                type=schedule,pattern=latest
-                type=semver,pattern={{version}}
-                type=edge,branch=${{ steps.branch-name.outputs.default_branch }}
-                type=raw,value=develop,enable=${{ github.ref == format('refs/heads/{0}', 'develop') }}
-                type=ref,event=branch,enable=${{ !(steps.branch-name.outputs.default_branch) && (github.ref != format('refs/heads/{0}', 'develop')) }}
-
-          # GitHub Action to install QEMU static binaries.
-          - name: Set up QEMU
-            uses: docker/setup-qemu-action@v2
-
-          # GitHub Action to set up Docker Buildx.
-          - name: Set up Docker Buildx
-            uses: docker/setup-buildx-action@v2
-            with:
-              buildkitd-flags: "--debug"
-
-          # # GitHub Action to free disk space on Ubuntu action runners.
-          # - name: Free Disk Space (Ubuntu)
-          #   uses: jlumbroso/free-disk-space@main
-
-          # Hack to fix Errors on arm/v7 and linux/386 
-          # - "Value too large for defined data type;" https://github.com/crazy-max/ghaction-docker-buildx/issues/172
-          # - "object not found - no match for id (SOME_HASH)" on git update
-          # Steps:
-          # 1. Create larger Swapfile to increase hosts (virtual) ram. Max size is limited by free disk space of runner ~20GB (1MBx20K) 
-          # 2. Mount tmpfs to dockers filesystem /var/lib/docker (volumes, etc.) with max. size of Swapfile + host's free phys.RAM
-          # Note: If tmpfs is too small for build the runner will receive a shutdown signal. Free ram max. ~1.5 GB (6.8 GB phys - 5.5 GB def. tempfs) 
-          - name: Hack docker filesystem to create tmpfs for docker cache
-            run: |
-              echo "---- Initial System Status ----"
-              echo "Disk Space:"
-              df -h
-              echo "Swap state:"
-              sudo swapon --show
-              echo "RAM status:"
-              sudo free -h
-              echo "-------------------------------"
-
-              sudo dd if=/dev/zero of=/swapfileLarge bs=1M count=20K 
-              sudo chmod 600 /swapfileLarge
-              sudo mkswap /swapfileLarge
-              sudo swapon /swapfileLarge
-              sudo swapoff /mnt/swapfile && sudo rm /mnt/swapfile
-              sudo systemctl stop docker
-              sudo mount -t tmpfs -o size=22G tmpfs /var/lib/docker
-              sudo systemctl start docker
-
-              echo "---- System Status after Processing ----"
-              echo "Disk Space:"
-              df -h
-              echo "Swap state:"
-              sudo swapon --show
-              echo "RAM status:"
-              sudo free -h
-              echo "-----------------------------------------"
+    strategy:
+      fail-fast: false
+      # List of platforms on which the job will be run in parallel.
+      matrix:
+        platform:
+          - linux/amd64
+          - linux/arm64
+          - linux/arm/v7
+          - linux/i386
       
-          # GitHub Action to login to DockerHub.
-          -   name: Login to DockerHub
-              uses: docker/login-action@v2
-              with:
-                  username: ${{ secrets.DOCKERHUB_USERNAME }}
-                  password: ${{ secrets.DOCKERHUB_TOKEN }}
-                  
-          # GitHub Action to build and push Docker images with Buildx.
-          - name: Build
-            uses: docker/build-push-action@v3
-            with:
-              context: .
-              file: ./Dockerfile
-              platforms: linux/amd64, linux/arm/v7, linux/arm64
-              push: ${{ github.event_name != 'pull_request' }}
-              tags: ${{ steps.docker_meta.outputs.tags }}
-              no-cache: true
-              build-args: |
-                VERSION=${{ steps.docker_meta.outputs.version }}
-                BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
-                VCS_REF=${GITHUB_SHA::8}
-              labels: |
-                ${{ steps.docker_meta.outputs.labels }}
-                org.opencontainers.image.title=${{ env.DOCKERHUB_SLUG }}
-                org.opencontainers.image.description=Docker image update notifier
-                org.opencontainers.image.vendor=${{secrets.DOCKERHUB_USERNAME}}
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Store current platform from matrix as variable $PLATFORM_PAIR
+      - name: Prepare
+        run: |
+          platform=${{ matrix.platform }}
+          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
 
-          - name: Check manifest
-            if: github.event_name != 'pull_request'
-            run: |
-              docker buildx imagetools inspect ${{ env.DOCKERHUB_SLUG }}:${{ steps.docker_meta.outputs.version }}
+      # Github action to provide runner with OS information
+      - name: Get GitHub Actions runner OS information
+        uses: kenchan0130/actions-system-info@master
+        id: system-info
 
-          - name: Inspect image
-            if: github.event_name != 'pull_request'
-            run: |
-              docker pull ${{ env.DOCKERHUB_SLUG }}:${{ steps.docker_meta.outputs.version }}
-              docker image inspect ${{ env.DOCKERHUB_SLUG }}:${{ steps.docker_meta.outputs.version }}
+      - name: Output System information
+        run: |
+          OUTPUTS=(
+            "CPU Core: ${{ steps.system-info.outputs.cpu-core }}"
+            "CPU Model: ${{ steps.system-info.outputs.cpu-model }}"
+            "Hostname: ${{ steps.system-info.outputs.hostname }}"
+            "Kernel release: ${{ steps.system-info.outputs.kernel-release }}"
+            "Kernel version: ${{ steps.system-info.outputs.kernel-version }}"
+            "Name: ${{ steps.system-info.outputs.name }}"
+            "Platform: ${{ steps.system-info.outputs.platform }}"
+            "Release: ${{ steps.system-info.outputs.release }}"
+            "Total memory bytes: ${{ steps.system-info.outputs.totalmem }}"
+          )
 
-          - name: Clear
-            if: always() && github.event_name != 'pull_request'
-            run: |
-                rm -f ${HOME}/.docker/config.json
+          for OUTPUT in "${OUTPUTS[@]}";do
+            echo "${OUTPUT}"
+          done
+
+          echo "Disk Space:"
+          df -h
+
+      # # GitHub Action to free disk space on Ubuntu action runners.
+      # - name: Free Disk Space (Ubuntu)
+      #   uses: jlumbroso/free-disk-space@main
+
+      # Github Action to get branch or tag information without the /ref/* prefix
+      - name: Get branch names
+        id: branch-name
+        uses: tj-actions/branch-names@v6
+
+      # Github Action to check-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - name: Checkout
+        uses: actions/checkout@v4.1.1
+
+      # GitHub Action to install QEMU static binaries (optional for more platform options in buildx)
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      # GitHub Action to set up Docker Buildx.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          buildkitd-flags: ${{ github.event.inputs.logLevel == 'debug' && '--debug' || '' }}
+
+      # Hack to fix Errors on arm/v7 and linux/386 
+      # Work around for qemu bug on 32bit systems caused during rust compilation (https://github.com/JonasAlfredsson/docker-on-tmpfs?tab=readme-ov-file)
+      # - "Value too large for defined data type;" https://github.com/crazy-max/ghaction-docker-buildx/issues/172
+      # - "object not found - no match for id (SOME_HASH)" on git update
+      - name: Run Docker on tmpfs
+        if: matrix.platform == 'linux/arm/v7' || matrix.platform == 'linux/i386'
+        uses: JonasAlfredsson/docker-on-tmpfs@v1
+        with:
+          tmpfs_size: 10
+          swap_size: 10
+          swap_location: '/mnt/swapfile'
+
+      # GitHub Action to extract metadata (tags, labels) for Docker.
+      - name: Docker meta
+        id: docker_meta
+        uses: docker/metadata-action@v5
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          images: ${{ env.DOCKERHUB_SLUG }}
+          tags: ${{ env.TAGS }}
+
+      # GitHub Action to login to DockerHub.
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # GitHub Action to build and push Docker image by digest
+      # - Use Docker-Image-Cache from GitHub Actions (gha) and cache all data (max)
+      - name: Build and push by digest
+        id: docker_build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          platforms: ${{ matrix.platform }}
+          provenance: false
+          labels: |
+            ${{ steps.docker_meta.outputs.labels }}
+            org.opencontainers.image.title=${{ env.DOCKERHUB_SLUG }}
+            org.opencontainers.image.description=Docker image update notifier
+            org.opencontainers.image.vendor=${{secrets.DOCKERHUB_USERNAME}}
+          tags: ${{ env.DOCKERHUB_SLUG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=image,name=${{ env.DOCKERHUB_SLUG }},push-by-digest=true,name-canonical=true,push=true
+          build-args: |
+            VERSION=${{ steps.docker_meta.outputs.version }}
+            BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+            VCS_REF=${GITHUB_SHA::8}
+
+      # Export digest and store in GitHub artefact storage for later use in other jobs
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.docker_build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # This merge job will catch all digests from the build jobs, create a manifest list and push it to Docker Hub
+  merge:
+    runs-on: ubuntu-latest
+    needs:
+      - build
+    steps:
+      # Download digests from build jobs
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      # GitHub Action to set up Docker Buildx.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # GitHub Action to extract metadata (tags, labels) for Docker.
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKERHUB_SLUG }}
+          tags: ${{ env.TAGS }}
+
+      # GitHub Action to login to DockerHub.
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Create and push manifest list
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.DOCKERHUB_SLUG }}@sha256:%s ' *)
+
+      # GitHub Action to build and push Docker images with Buildx.
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect ${{ env.DOCKERHUB_SLUG }}:${{ steps.meta.outputs.version }}
+
