@@ -155,8 +155,8 @@ jobs:
           provenance: false
           labels: ${{ steps.docker_meta.outputs.labels }}
           tags: ${{ env.DOCKERHUB_SLUG }}
-          cache-from: type=gha,scope=${{ github.repository }}-${{ github.ref_name }}-${{ matrix.platform }}-${{ matrix.image }}
-          cache-to: type=gha,mode=max,scope=${{ github.repository }}-${{ github.ref_name }}-${{ matrix.platform }}-${{ matrix.image }}
+          #cache-from: type=gha,scope=${{ github.repository }}-${{ github.ref_name }}-${{ matrix.platform }}-${{ matrix.image }}
+          #cache-to: type=gha,mode=max,scope=${{ github.repository }}-${{ github.ref_name }}-${{ matrix.platform }}-${{ matrix.image }}
           outputs: type=image,name=${{ env.DOCKERHUB_SLUG }},push-by-digest=true,name-canonical=true,push=true
           build-args: |
             IMG_VERSION=${{ matrix.image }}
