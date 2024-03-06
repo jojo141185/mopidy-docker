@@ -95,7 +95,7 @@ RUN export CSOUND_LIB_DIR="/usr/lib/$(uname -m)-linux-gnu" \
     && cargo clean
 
 # --- Release Node ---
-FROM debian:bullseye-slim as Release
+FROM debian:bookworm-slim as Release
 # Define Image version [latest, develop, release]
 ARG IMG_VERSION 
 
@@ -152,10 +152,6 @@ RUN mkdir -p /etc/apt/keyrings \
         mopidy \
     && rm -rf /var/lib/apt/lists/*
 
-# Upgrade Python package manager pip
-# https://pypi.org/project/pip/
-RUN python3 -m pip install --upgrade pip
-
 # Clone Iris from the repository and install in development mode.
 # This allows a binding at "/iris" to map to your local folder for development, rather than
 # installing using pip.
@@ -191,20 +187,20 @@ RUN if [ "$IMG_VERSION" = "latest" ]; then \
 # Install Mopidy-Spotify
 RUN git clone --depth 1 --single-branch -b main https://github.com/mopidy/mopidy-spotify.git mopidy-spotify \
     && cd mopidy-spotify \
-    && python3 setup.py install \
+    && python3 -m pip install . --break-system-packages \
     && cd .. \
     && rm -rf mopidy-spotify
 
 # Install mopidy-radionet
 RUN git clone --depth 1 --single-branch -b master https://github.com/plintx/mopidy-radionet.git mopidy-radionet \
     && cd mopidy-radionet \
-    && python3 setup.py install \
+    && python3 -m pip install . --break-system-packages \
     && cd .. \
     && rm -rf mopidy-radionet
 
 # Install additional mopidy extensions and Python dependencies via pip
 COPY requirements.txt .
-RUN python3 -m pip install -r requirements.txt
+RUN python3 -m pip install -r requirements.txt --break-system-packages
 
 # Cleanup
 RUN apt-get clean all \
