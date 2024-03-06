@@ -24,3 +24,4 @@ jobs:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
           FROM_BRANCH: "main"
           TO_BRANCH: "develop"
+          CONTENT_COMPARISON: true
