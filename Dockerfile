@@ -134,6 +134,11 @@ RUN apt-get update \
         gstreamer1.0-pulseaudio \
     && rm -rf /var/lib/apt/lists/*
 
+# Adjust pip configuration to ensure compatibility with Bookworm and forthcoming Debian images with this Dockerfile.
+# PEP 668 introduces a method for Linux distributions to inform pip about restricting package installations outside a virtual environment.
+# This can be globally disabled, eliminating the need to append '--break-system-packages' to every pip command.
+RUN pip3 config set global.break-system-packages true
+
 # Copy builded target data from Builder DEST_DIR to root
 # Note: target directory tree links directly to $GST_PLUGIN_PATH
 COPY --from=Builder /target/gst-plugins-rs/ /
@@ -187,20 +192,20 @@ RUN if [ "$IMG_VERSION" = "latest" ]; then \
 # Install Mopidy-Spotify
 RUN git clone --depth 1 --single-branch -b main https://github.com/mopidy/mopidy-spotify.git mopidy-spotify \
     && cd mopidy-spotify \
-    && python3 -m pip install . --break-system-packages \
+    && python3 -m pip install . \
     && cd .. \
     && rm -rf mopidy-spotify
 
 # Install mopidy-radionet
 RUN git clone --depth 1 --single-branch -b master https://github.com/plintx/mopidy-radionet.git mopidy-radionet \
     && cd mopidy-radionet \
-    && python3 -m pip install . --break-system-packages \
+    && python3 -m pip install . \
     && cd .. \
     && rm -rf mopidy-radionet
 
 # Install additional mopidy extensions and Python dependencies via pip
 COPY requirements.txt .
-RUN python3 -m pip install -r requirements.txt --break-system-packages
+RUN python3 -m pip install -r requirements.txt
 
 # Cleanup
 RUN apt-get clean all \
