@@ -134,10 +134,11 @@ RUN apt-get update \
         gstreamer1.0-pulseaudio \
     && rm -rf /var/lib/apt/lists/*
 
-# Adjust pip configuration to ensure compatibility with Bookworm and forthcoming Debian images with this Dockerfile.
+# Adjust pip configuration to ensure compatibility with Bookworm and forthcoming Debian images with this Dockerfile
 # PEP 668 introduces a method for Linux distributions to inform pip about restricting package installations outside a virtual environment.
 # This can be globally disabled, eliminating the need to append '--break-system-packages' to every pip command.
-RUN pip3 config set global.break-system-packages true
+RUN pip3 config set global.break-system-packages true \
+    && cp $HOME/.config/pip/pip.conf /etc/pip.conf
 
 # Copy builded target data from Builder DEST_DIR to root
 # Note: target directory tree links directly to $GST_PLUGIN_PATH
@@ -233,6 +234,9 @@ RUN set -ex \
 
 # Runs as mopidy user by default.
 USER mopidy:audio
+
+# Disable PEP 668 for user mopidy globally
+# RUN pip3 config set global.break-system-packages true
 
 VOLUME ["/var/lib/mopidy/local"]
 
