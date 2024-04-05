@@ -27,7 +27,7 @@ on:
       #- '.github/workflows/**'
       - 'docs/**'
   schedule:
-    - cron: '0 5 * * *' # everyday at 5am
+    - cron: '0 2 * * *' # everyday at 2am
 
 # Set environment variables
 env:
