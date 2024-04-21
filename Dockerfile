@@ -121,6 +121,8 @@ RUN apt-get update \
         libasound2-dev \
         libdbus-glib-1-dev \
         libgirepository1.0-dev \
+        libcairo2-dev \
+        pkg-config \
         # Install Python
         python3-dev \
         python3-gst-1.0 \
