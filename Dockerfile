@@ -193,7 +193,20 @@ RUN if [ "$IMG_VERSION" = "latest" ]; then \
     && cp /iris/VERSION /
 
 # Install Mopidy-Spotify
-RUN git clone --depth 1 --single-branch -b main https://github.com/mopidy/mopidy-spotify.git mopidy-spotify \
+RUN if [ "$IMG_VERSION" = "latest" ]; then \
+        MOPSPOT_BRANCH_OR_TAG=master; \
+    elif [ "$IMG_VERSION" = "develop" ]; then \
+        MOPSPOT_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/mopidy/mopidy-spotify/releases | jq -r 'map(select(.draft == false)) | .[0].tag_name'); \
+    elif [ "$IMG_VERSION" = "release" ]; then \
+        MOPSPOT_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/mopidy/mopidy-spotify/releases | jq -r 'map(select(.draft == false)) | .[0].tag_name'); \
+        # Latest official release of MopidySpotify v4.1.1 is broken (see https://github.com/mopidy/mopidy-spotify/issues/110)
+        #MOPSPOT_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/mopidy/mopidy-spotify/releases/latest | jq -r .tag_name); \
+    else \
+        echo "Invalid version info for Mopidy-Spotify: $IMG_VERSION"; \
+    exit 1; \
+    fi \
+    && echo "Selected branch or tag for Mopidy-Spotify: $MOPSPOT_BRANCH_OR_TAG" \
+    && git clone --depth 1 --single-branch -b ${MOPSPOT_BRANCH_OR_TAG} https://github.com/mopidy/mopidy-spotify.git mopidy-spotify \
     && cd mopidy-spotify \
     && python3 -m pip install . \
     && cd .. \
