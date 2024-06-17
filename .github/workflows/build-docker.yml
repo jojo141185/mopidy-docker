@@ -51,6 +51,7 @@ jobs:
           - linux/arm64
           - linux/arm/v7
         image:
+          # Disable "latest" build until mopidy 4.0 as dependency in mopidy-spotify is available
           #- latest
           - develop
           - release
@@ -189,8 +190,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: 
-          - latest
+        image:
+          # Disable "latest" build until mopidy 4.0 as dependency in mopidy-spotify is available
+          #- latest
           - develop
           - release
     runs-on: ubuntu-latest
