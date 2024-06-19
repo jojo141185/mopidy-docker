@@ -194,7 +194,7 @@ RUN if [ "$IMG_VERSION" = "latest" ]; then \
 
 # Install Mopidy-Spotify
 RUN if [ "$IMG_VERSION" = "latest" ]; then \
-        MOPSPOT_BRANCH_OR_TAG=master; \
+        MOPSPOT_BRANCH_OR_TAG=main; \
     elif [ "$IMG_VERSION" = "develop" ]; then \
         MOPSPOT_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/mopidy/mopidy-spotify/releases | jq -r 'map(select(.draft == false)) | .[0].tag_name'); \
     elif [ "$IMG_VERSION" = "release" ]; then \
