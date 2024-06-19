@@ -203,7 +203,7 @@ RUN if [ "$IMG_VERSION" = "latest" ]; then \
         #MOPSPOT_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/mopidy/mopidy-spotify/releases/latest | jq -r .tag_name); \
     else \
         echo "Invalid version info for Mopidy-Spotify: $IMG_VERSION"; \
-    exit 1; \
+        exit 1; \
     fi \
     && echo "Selected branch or tag for Mopidy-Spotify: $MOPSPOT_BRANCH_OR_TAG" \
     && git clone --depth 1 --single-branch -b ${MOPSPOT_BRANCH_OR_TAG} https://github.com/mopidy/mopidy-spotify.git mopidy-spotify \
