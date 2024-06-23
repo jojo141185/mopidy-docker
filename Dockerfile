@@ -255,7 +255,11 @@ USER mopidy:audio
 
 VOLUME ["/var/lib/mopidy/local"]
 
-EXPOSE 6600 6680 1704 1705 5555/udp
+# Port-List to expose:
+# 6600 - (optional) Exposes MPD server (if you use for example ncmpcpp client).
+# 6680 - (optional) Exposes HTTP server (if you use your browser as client).
+# 5555/udp - (optional) Exposes UDP streaming for FIFE sink (e.g. for visualizers).
+EXPOSE 6600 6680 5555/udp
 
 ENTRYPOINT ["/usr/bin/dumb-init", "/entrypoint.sh"]
 CMD ["mopidy"]
