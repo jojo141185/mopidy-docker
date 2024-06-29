@@ -134,8 +134,6 @@ RUN apt-get update \
         gstreamer1.0-plugins-ugly \
         gstreamer1.0-libav \
         gstreamer1.0-pulseaudio \
-        # Dleyna Server (DLNA Digital Media Servers)
-        dleyna-server \
     && rm -rf /var/lib/apt/lists/*
 
 # Adjust pip configuration to ensure compatibility with Bookworm and forthcoming Debian images with this Dockerfile
