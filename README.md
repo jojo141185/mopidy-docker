@@ -10,17 +10,13 @@ Docker-Images: [DockerHub](https://hub.docker.com/r/jojo141185/mopidy)
 ## About
 
 Using Docker images built on top of this repo, mopidy with its extensions can be easily run on multiple machines with different architectures (amd64, arm).
-Besides the music server mopidy, the image includes the great web interface [IRIS](https://github.com/jaedb/Iris/) from jaedb and other useful extensions, like:
+Besides the music server mopidy, the image includes the great web interface [IRIS](https://github.com/jaedb/Iris/) from jaedb.
+Please note that the image only includes a minimal set of the basic mopidy extensions:
 
-- DLNA Server
-- MPD Server
-- Youtube & YTMusic
-- Jellyfin
-- Podcast
-- RadioNet
-- Soundcloud
-- TuneIn
-- MusicBox & Party Webclient
+- Mopidy-Local
+- Mopidy-MPD
+
+Other useful extensions can be installed and keep updated by pip on container startup. Simply add them to the environment variable **PIP_PACKAGES** as a list of package names.
 
 ## Prerequisites
 
