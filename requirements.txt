@@ -2,5 +2,4 @@
 # Note: All other packages can be installed by variable PIP_PACKAGES on runtime
 Mopidy-Local
 Mopidy-MPD
-Mopidy-MusicBox-Webclient
-Mopidy-dLeyna
+#Mopidy-MusicBox-Webclient

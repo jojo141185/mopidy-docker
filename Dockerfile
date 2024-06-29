@@ -158,8 +158,6 @@ RUN mkdir -p /etc/apt/keyrings \
     && apt-get update \
     && apt-get install -y \ 
         mopidy \
-        # Optional dLeyna (apt package includes dependencies dleyna-server and dbus-python)
-        mopidy-dleyna \ 
     && rm -rf /var/lib/apt/lists/*
 
 # Clone Iris from the repository and install in development mode.

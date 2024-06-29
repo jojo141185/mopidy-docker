@@ -93,6 +93,7 @@ ARGUMENT|DEFAULT|DESCRIPTION
 
 Note:  
 
+- Depending on the number ans size of PIP_PACKAGES you have, it may take a while to start on first run. Please be patient and look at the logs.
 - If you have problems with permission errors, try --user root first.
 - On problems accessing the web interface, check mopidy.conf using the correct IP address. Try "hostname: 0.0.0.0" to listen to any and with no (=empty) access restrictions in "allowed_origins = ".
 
