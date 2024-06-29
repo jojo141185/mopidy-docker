@@ -134,6 +134,8 @@ RUN apt-get update \
         gstreamer1.0-plugins-ugly \
         gstreamer1.0-libav \
         gstreamer1.0-pulseaudio \
+        # Dleyna Server (DLNA Digital Media Servers)
+        dleyna-server \
     && rm -rf /var/lib/apt/lists/*
 
 # Adjust pip configuration to ensure compatibility with Bookworm and forthcoming Debian images with this Dockerfile
@@ -158,6 +160,8 @@ RUN mkdir -p /etc/apt/keyrings \
     && apt-get update \
     && apt-get install -y \ 
         mopidy \
+        # Optional dLeyna (apt package includes dependencies dleyna-server and dbus-python)
+        mopidy-dleyna \ 
     && rm -rf /var/lib/apt/lists/*
 
 # Clone Iris from the repository and install in development mode.
@@ -212,13 +216,6 @@ RUN if [ "$IMG_VERSION" = "latest" ]; then \
     && cd .. \
     && rm -rf mopidy-spotify
 
-# Install mopidy-radionet
-RUN git clone --depth 1 --single-branch -b master https://github.com/plintx/mopidy-radionet.git mopidy-radionet \
-    && cd mopidy-radionet \
-    && python3 -m pip install . \
-    && cd .. \
-    && rm -rf mopidy-radionet
-
 # Install additional mopidy extensions and Python dependencies via pip
 COPY requirements.txt .
 RUN python3 -m pip install -r requirements.txt
@@ -249,9 +246,6 @@ RUN set -ex \
 
 # Runs as mopidy user by default.
 USER mopidy:audio
-
-# Disable PEP 668 for user mopidy globally
-# RUN pip3 config set global.break-system-packages true
 
 VOLUME ["/var/lib/mopidy/local"]
 
