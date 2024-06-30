@@ -5,10 +5,15 @@ on:
   workflow_dispatch:
     inputs:
       logLevel:
+        type: choice
         description: Log level     
         required: false
-        default: debug
+        default: info
+        options:
+          - info
+          - debug
       platform:
+        type: choice
         description: 'Platform to build'
         required: false
         default: all
