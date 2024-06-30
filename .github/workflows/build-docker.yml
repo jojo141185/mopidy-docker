@@ -70,10 +70,11 @@ jobs:
           END
           )
           if [ -z "${{ github.event.inputs.platform }}" ] || [ "${{ github.event.inputs.platform }}" == "all" ]; then
-            echo "::set-output name=platforms::${ALL_PLATFORMS}"
+            echo "PLATFORMS=${ALL_PLATFORMS}" >> $GITHUB_ENV
           else
-            echo "::set-output name=platforms::[\"${{ github.event.inputs.platform }}\"]"
+            echo "PLATFORMS=[\"${{ github.event.inputs.platform }}\"]" >> $GITHUB_ENV
           fi
+        shell: bash
   
   # Build docker image for each platform on a dedicated runner using the matrix strategy and push the image by digest
   # see https://docs.docker.com/build/ci/github-actions/multi-platform/#distribute-build-across-multiple-runners
@@ -87,7 +88,7 @@ jobs:
       fail-fast: false
       # List of platforms on which the job will be run in parallel.
       matrix:
-        platform: ${{ fromJson(needs.determine_platform.outputs.platforms) }}
+        platform: ${{ fromJson(env.PLATFORMS) }}
         image:
           # Disable "latest" build until mopidy 4.0 as dependency in mopidy-spotify is available
           #- latest
