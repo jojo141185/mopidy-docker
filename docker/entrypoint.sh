@@ -2,6 +2,9 @@
 
 # If PGID and PUID are set, this modifies the UID/GID of the precreated user account mopidy and the group audio
 # This helps matching the container's UID/GID with the host's to avoid permission issues on the mounted volume.
+DOCKER_USER = mopidy
+DOCKER_GROUP = audio
+
 if [ -n "$PGID" ] || [ -n "$PUID" ]; then
     if [ -n "$PGID" ] && [ -n "$PUID" ]; then
         echo "Requested change of UID: $PUID and GID: $PGID for running user."
@@ -11,29 +14,39 @@ if [ -n "$PGID" ] || [ -n "$PUID" ]; then
         echo "Requested change of UID: $PUID for running user."
     fi
 
-    # Check and change mopidy user UID if necessary
+    # Check and change user UID if necessary
+    DOCKER_USER_CURRENT_ID=`id -u $DOCKER_USER`
     if [ -n "$PUID" ]; then
-        if id -u mopidy > /dev/null 2>&1; then
-            echo "mopidy UID $PUID already exists. No change made."
+        if [ $DOCKER_USER_CURRENT_ID -eq $PUID ]; then
+            echo "User $DOCKER_USER is already mapped to $DOCKER_USER_CURRENT_ID. Nice!"
         else
-            echo "Changing mopidy user to UID $PUID"
-            usermod --uid $PUID mopidy
+            DOCKER_USER_EXIST_NAME=`getent passwd $PUID | cut -d: -f1`
+            if [ -n "$DOCKER_USER_EXIST_NAME" ]; then
+                echo "User ID is already taken by user: $DOCKER_USER_EXIST_NAME"
+            else
+                echo "Changing $DOCKER_USER user to UID $PUID"
+                usermod --uid $PUID $DOCKER_USER
+            fi
         fi
-    fi
 
-    # Check and change mopidy group GID if necessary
+    # Check and change group GID if necessary
     if [ -n "$PGID" ]; then
-        if id -g audio > /dev/null 2>&1; then
-            echo "audio GID $PGID already exists. No change made."
+        DOCKER_GROUP_CURRENT_ID=`id -g $DOCKER_GROUP`
+        if [ $DOCKER_GROUP_CURRENT_ID -eq $PGID ]; then
+            echo "Group $DOCKER_GROUP is already mapped to $DOCKER_GROUP_CURRENT_ID. Nice!"
         else
-            echo "Changing audio group to GID $PGID"
-            groupmod --gid $PGID audio
+            DOCKER_GROUP_EXIST_NAME=`getent group $PGID | cut -d: -f1`
+            if [ -n "$DOCKER_GROUP_EXIST_NAME" ]; then
+                echo "Group ID is already taken by group: $DOCKER_GROUP_EXIST_NAME"
+            else
+                echo "Changing $DOCKER_GROUP group to GID $PGID"
+                groupmod --gid $PGID $DOCKER_GROUP
+            fi
         fi
-    fi
 
     # Change ownership of relevant directories
     if [ -n "$PUID" ] || [ -n "$PGID" ]; then
-        chown -R mopidy:audio /var/lib/mopidy /entrypoint.sh /iris
+        chown -R $DOCKER_USER:$DOCKER_GROUP /var/lib/mopidy /entrypoint.sh /iris
     fi
 fi
 

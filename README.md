@@ -78,7 +78,7 @@ The following table describes the docker arguments and environment variables:
 ARGUMENT|DEFAULT|DESCRIPTION
 ---|---|---|
 --device | /dev/snd | For ALSA share the hosts sound device /dev/snd. For pulseaudio see this [guide](https://github.com/mviereck/x11docker/wiki/Container-sound:-ALSA-or-Pulseaudio) or use [snapcast](https://github.com/badaix/snapcast) for network / multiroom audio solution.
---user | root | (optional) You may run as any UID/GID, by default it'll run as UID/GID 84044 (mopidy:audio within the container).
+--user | root | (optional) You may run as any UID/GID, by default it'll run as UID:GID 102:29 (mopidy:audio) within the container.
 -v | $PWD/config:/config | (essential) Cange $PWD/config path to the directory on host where your mopidy.conf is located.
 -v | $PWD/media:/var/lib/mopidy/media:ro | (optional) Cange $PWD/media path to directory with local media files (ro=read only).
 -v | $PWD/local:/var/lib/mopidy/local | (optional) Cange $PWD/local path to directory to store local metadata, libraries and playlists.
@@ -86,6 +86,9 @@ ARGUMENT|DEFAULT|DESCRIPTION
 -p | 6680:6680 | (optional) Exposes HTTP server to port 6680 on host (if you use your browser as client).
 -p | 5555:5555/udp | (optional) Exposes UDP streaming on port 5555 for FIFE sink (e.g. for visualizers).
 -e | PIP_PACKAGES= | (optional) Environment variable to inject some pip packages and mopidy extensions (i.e. Mopidy-Tidal) on upstart of container.
+-e | PUID= | (optional) Environment variable to define the user ID of the mopidy user to match with host's user ID.
+-e | PGID= | (optional) Environment variable to define the group ID of the mopidy user to match with host's group ID.
+
 
 Note:  
 
