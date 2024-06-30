@@ -2,8 +2,9 @@
 
 # If PGID and PUID are set, this modifies the UID/GID of the precreated user account mopidy and the group audio
 # This helps matching the container's UID/GID with the host's to avoid permission issues on the mounted volume.
-DOCKER_USER = mopidy
-DOCKER_GROUP = audio
+# Note: To do the user id mapping, the container needs to be run as root
+DOCKER_USER=mopidy
+DOCKER_GROUP=audio
 
 if [ -n "$PGID" ] || [ -n "$PUID" ]; then
     if [ -n "$PGID" ] && [ -n "$PUID" ]; then
@@ -15,12 +16,12 @@ if [ -n "$PGID" ] || [ -n "$PUID" ]; then
     fi
 
     # Check and change user UID if necessary
-    DOCKER_USER_CURRENT_ID=`id -u $DOCKER_USER`
+    DOCKER_USER_CURRENT_ID=$(id -u $DOCKER_USER)
     if [ -n "$PUID" ]; then
         if [ $DOCKER_USER_CURRENT_ID -eq $PUID ]; then
             echo "User $DOCKER_USER is already mapped to $DOCKER_USER_CURRENT_ID. Nice!"
         else
-            DOCKER_USER_EXIST_NAME=`getent passwd $PUID | cut -d: -f1`
+            DOCKER_USER_EXIST_NAME=$(getent passwd $PUID | cut -d: -f1)
             if [ -n "$DOCKER_USER_EXIST_NAME" ]; then
                 echo "User ID is already taken by user: $DOCKER_USER_EXIST_NAME"
             else
@@ -28,14 +29,15 @@ if [ -n "$PGID" ] || [ -n "$PUID" ]; then
                 usermod --uid $PUID $DOCKER_USER
             fi
         fi
+    fi
 
     # Check and change group GID if necessary
     if [ -n "$PGID" ]; then
-        DOCKER_GROUP_CURRENT_ID=`id -g $DOCKER_GROUP`
+        DOCKER_GROUP_CURRENT_ID=$(id -g $DOCKER_GROUP)
         if [ $DOCKER_GROUP_CURRENT_ID -eq $PGID ]; then
             echo "Group $DOCKER_GROUP is already mapped to $DOCKER_GROUP_CURRENT_ID. Nice!"
         else
-            DOCKER_GROUP_EXIST_NAME=`getent group $PGID | cut -d: -f1`
+            DOCKER_GROUP_EXIST_NAME=$(getent group $PGID | cut -d: -f1)
             if [ -n "$DOCKER_GROUP_EXIST_NAME" ]; then
                 echo "Group ID is already taken by group: $DOCKER_GROUP_EXIST_NAME"
             else
@@ -43,6 +45,7 @@ if [ -n "$PGID" ] || [ -n "$PUID" ]; then
                 groupmod --gid $PGID $DOCKER_GROUP
             fi
         fi
+    fi
 
     # Change ownership of relevant directories
     if [ -n "$PUID" ] || [ -n "$PGID" ]; then
@@ -66,4 +69,8 @@ fi
 # source /docker-entrypoint.sh
 
 # Execute command passed to the container
-exec "$@"
+if [[ $# -gt 0 ]]; then
+    exec sudo -u -H $DOCKER_USER "$@"
+else
+    exec sudo -u -H $DOCKER_USER bash
+fi
