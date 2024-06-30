@@ -3,9 +3,6 @@
 # If PGID and PUID are set, this modifies the UID/GID of the precreated user account mopidy and the group audio
 # This helps matching the container's UID/GID with the host's to avoid permission issues on the mounted volume.
 # Note: To do the user id mapping, the container needs to be run as root
-DOCKER_USER=mopidy
-DOCKER_GROUP=audio
-
 if [ -n "$PGID" ] || [ -n "$PUID" ]; then
     if [ -n "$PGID" ] && [ -n "$PUID" ]; then
         echo "Requested change of UID: $PUID and GID: $PGID for running user."
@@ -62,15 +59,15 @@ fi
 # Check and install additional PIP packages
 if [ -n "$PIP_PACKAGES" ]; then
     echo "-- INSTALLING PIP PACKAGES $PIP_PACKAGES --"
-    python3 -m pip install --no-cache $PIP_PACKAGES
+    sudo -u $DOCKER_USER -H python3 -m pip install --no-cache $PIP_PACKAGES
 fi
 
 # Execute the original Docker entrypoint script
-# source /docker-entrypoint.sh
+# sudo -u $DOCKER_USER -H source /docker-entrypoint.sh
 
 # Execute command passed to the container
 if [[ $# -gt 0 ]]; then
-    exec sudo -u -H $DOCKER_USER "$@"
+    exec sudo -u $DOCKER_USER -H "$@"
 else
-    exec sudo -u -H $DOCKER_USER bash
+    exec sudo -u $DOCKER_USER -H bash
 fi

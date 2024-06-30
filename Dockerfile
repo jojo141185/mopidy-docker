@@ -222,6 +222,10 @@ RUN apt-get clean all \
     && rm -rf /root/.cache \
     && rm -rf /iris/node_modules
 
+# Define user and group to run mopidy
+ENV DOCKER_USER=mopidy
+ENV DOCKER_GROUP=audio
+
 # Start helper script.
 COPY docker/entrypoint.sh /entrypoint.sh
 
@@ -235,13 +239,13 @@ COPY docker/mopidy/pulse-client.conf /etc/pulse/client.conf
 # RUN useradd -ms /bin/bash mopidy
 ENV HOME=/var/lib/mopidy
 RUN set -ex \
-    && usermod -G audio,sudo,pulse-access mopidy \
+    && usermod -G audio,sudo,pulse-access $DOCKER_USER \
     && mkdir /var/lib/mopidy/local \
-    && chown mopidy:audio -R $HOME /entrypoint.sh /iris \
+    && chown $DOCKER_USER:$DOCKER_GROUP -R $HOME /entrypoint.sh /iris \
     && chmod go+rwx -R $HOME /entrypoint.sh /iris
 
 # Runs as mopidy user by default.
-USER mopidy:audio
+USER $DOCKER_USER:$DOCKER_GROUP
 
 VOLUME ["/var/lib/mopidy/local"]
 
