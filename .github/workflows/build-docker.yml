@@ -1,7 +1,6 @@
 name: Build multi-arch docker images and publish on DockerHub
 
 # Control when actions will run
-# Triggers the workflow on push or pull request events but only for the main/master branch
 on:
   workflow_dispatch:
     inputs:
@@ -9,6 +8,17 @@ on:
         description: Log level     
         required: false
         default: debug
+      platform:
+        description: 'Platform to build'
+        required: false
+        default: all
+        # Limit available choices for manual runs
+        options:
+          - all
+          - linux/amd64
+          - linux/arm64
+          - linux/arm/v7
+
   push:
     branches:
       - main
@@ -19,6 +29,7 @@ on:
       - '**.md'
       #- '.github/workflows/**'
       - 'docs/**'
+
   pull_request:
     branches:
       - main
@@ -26,12 +37,13 @@ on:
       - '**.md'
       #- '.github/workflows/**'
       - 'docs/**'
+
   schedule:
     - cron: '0 2 * * *' # everyday at 2am
 
 # Set environment variables
 env:
-  DOCKERHUB_SLUG: ${{secrets.DOCKERHUB_USERNAME}}/mopidy
+  DOCKERHUB_SLUG: ${{ secrets.DOCKERHUB_USERNAME }}/mopidy
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel (matrix)
 jobs:
@@ -58,6 +70,11 @@ jobs:
       
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
+      # Overwrite platform matrix value for manual runs with a selected platform
+      - name: Set platform matrix for manual runs with a selected platform
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.platform != 'all' }}
+        run: echo "PLATFORM_MATRIX=[\"${{ github.event.inputs.platform }}\"]" >> $GITHUB_ENV
+
       # Store current platform from matrix as variable $PLATFORM_PAIR (with "/" replaced by "-")
       - name: Prepare
         run: |
@@ -135,7 +152,7 @@ jobs:
           labels: |
             org.opencontainers.image.title=${{ env.DOCKERHUB_SLUG }}
             org.opencontainers.image.description='Mopidy music server with Iris Web-UI, Spotify support and many other extensions.'
-            org.opencontainers.image.vendor=${{secrets.DOCKERHUB_USERNAME}}
+            org.opencontainers.image.vendor=${{ secrets.DOCKERHUB_USERNAME }}
 
       # GitHub Action to login to DockerHub.
       - name: Login to DockerHub
