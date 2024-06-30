@@ -88,7 +88,7 @@ jobs:
       fail-fast: false
       # List of platforms on which the job will be run in parallel.
       matrix:
-        platform: ${{ fromJson(env.PLATFORMS) }}
+        platform: ${{ fromJson($PLATFORMS) }} 
         image:
           # Disable "latest" build until mopidy 4.0 as dependency in mopidy-spotify is available
           #- latest
