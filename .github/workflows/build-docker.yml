@@ -62,17 +62,14 @@ jobs:
       - id: set-matrix
         run: |
           ALL_PLATFORMS=$(cat <<-END
-          [
-            "linux/amd64",
-            "linux/arm64",
-            "linux/arm/v7"
-          ]
+          ["linux/amd64","linux/arm64","linux/arm/v7"]
           END
           )
           if [ -z "${{ github.event.inputs.platform }}" ] || [ "${{ github.event.inputs.platform }}" == "all" ]; then
-            echo "PLATFORMS=${ALL_PLATFORMS}" >> $GITHUB_ENV
+            echo "::set-output name=platforms::${ALL_PLATFORMS}"
           else
-            echo "PLATFORMS=[\"${{ github.event.inputs.platform }}\"]" >> $GITHUB_ENV
+            SINGLE_PLATFORM="[\"${{ github.event.inputs.platform }}\"]"
+            echo "::set-output name=platforms::${SINGLE_PLATFORM}"
           fi
         shell: bash
   
@@ -88,7 +85,7 @@ jobs:
       fail-fast: false
       # List of platforms on which the job will be run in parallel.
       matrix:
-        platform: ${{ fromJson($PLATFORMS) }} 
+        platform: ${{ fromJson(needs.determine_platform.outputs.platforms) }}
         image:
           # Disable "latest" build until mopidy 4.0 as dependency in mopidy-spotify is available
           #- latest
