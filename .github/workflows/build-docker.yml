@@ -52,10 +52,34 @@ env:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel (matrix)
 jobs:
+  # Create a matrix of platforms depending on the input from workflow_dispatch or 
+  determine_platform:
+    name: Determine Platform
+    runs-on: ubuntu-latest
+    outputs:
+      platforms: ${{ steps.set-matrix.outputs.platforms }}
+    steps:
+      - id: set-matrix
+        run: |
+          ALL_PLATFORMS=$(cat <<-END
+          [
+            "linux/amd64",
+            "linux/arm64",
+            "linux/arm/v7"
+          ]
+          END
+          )
+          if [ -z "${{ github.event.inputs.platform }}" ] || [ "${{ github.event.inputs.platform }}" == "all" ]; then
+            echo "::set-output name=platforms::${ALL_PLATFORMS}"
+          else
+            echo "::set-output name=platforms::[\"${{ github.event.inputs.platform }}\"]"
+          fi
+  
   # Build docker image for each platform on a dedicated runner using the matrix strategy and push the image by digest
   # see https://docs.docker.com/build/ci/github-actions/multi-platform/#distribute-build-across-multiple-runners
   build:
     name: Build
+    needs: determine_platform
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
     
@@ -63,10 +87,7 @@ jobs:
       fail-fast: false
       # List of platforms on which the job will be run in parallel.
       matrix:
-        platform:
-          - linux/amd64
-          - linux/arm64
-          - linux/arm/v7
+        platform: ${{ fromJson(needs.determine_platform.outputs.platforms) }}
         image:
           # Disable "latest" build until mopidy 4.0 as dependency in mopidy-spotify is available
           #- latest
