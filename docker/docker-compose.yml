@@ -5,17 +5,13 @@ services:
         restart: always
         
         ## Run container as user 
-        # select specific privileged user
-        user: root
+        # By default this container should run as root to avoid permission issues
+        # Alternatively you can change to a specific privileged user and group
         #user: ${PUID}:${PGID}
-        
-        ## Add to audio group 
-        # change group name or id to your system's audio group
-        group_add:
-            - audio
+        user: root
         
         ## Add audio device 
-        # change to your system's audio device
+        # Change to your system's audio device
         devices:
             - /dev/snd
         
@@ -29,9 +25,14 @@ services:
             # Store mopidy library and images on host (persistent)
             #- './local:/var/lib/mopidy/local'
             
+            # Keep spotify credentials (persistent)
+            #- './.spotify:/var/lib/mopidy/spotify'
+
             ## Host audio settings
             # Pulseaudio
             - /run/user/1000/pulse/native:/tmp/pulseaudio.socket
+            # Pipewire
+            #- /run/user/1000/pipewire-0:/tmp/pulseaudio.socket
             # Alsa sound
             #- /etc/asound.conf:/etc/asound.conf
             #- /usr/share/alsa:/usr/share/alsa
@@ -43,9 +44,13 @@ services:
         image: 'jojo141185/mopidy:latest'
         
         environment: 
+            # Select host specific mopidy user and audio group to run with correct permissions
+            - PUID=1000
+            - PGID=1000
+
             # Host with pulseaudio
             - PULSE_SERVER=unix:/tmp/pulseaudio.socket
             - PULSE_COOKIE=/tmp/pulseaudio.cookie
             
             # Install additional pip packages
-            #- PIP_PACKAGES=Mopidy-Party Mopidy-TuneIn
+            #- PIP_PACKAGES=Mopidy-Party Mopidy-TuneIn Mopidy-Youtube yt-dlp
