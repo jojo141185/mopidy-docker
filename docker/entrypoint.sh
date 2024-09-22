@@ -30,7 +30,7 @@ if [ -n "$PGID" ] || [ -n "$PUID" ]; then
 
     # Check and change group GID if necessary
     if [ -n "$PGID" ]; then
-        DOCKER_GROUP_CURRENT_ID=$(id -g $DOCKER_GROUP)
+        DOCKER_GROUP_CURRENT_ID=$(getent group $DOCKER_GROUP | cut -d: -f3)
         if [ $DOCKER_GROUP_CURRENT_ID -eq $PGID ]; then
             echo "Group $DOCKER_GROUP is already mapped to $DOCKER_GROUP_CURRENT_ID. Nice!"
         else
@@ -61,9 +61,6 @@ if [ -n "$PIP_PACKAGES" ]; then
     echo "-- INSTALLING PIP PACKAGES $PIP_PACKAGES --"
     sudo -u $DOCKER_USER -H python3 -m pip install --no-cache $PIP_PACKAGES
 fi
-
-# Execute the original Docker entrypoint script
-# sudo -u $DOCKER_USER -H source /docker-entrypoint.sh
 
 # Execute command passed to the container
 if [[ $# -gt 0 ]]; then
