@@ -29,6 +29,8 @@ USER root
 # Install build dependencies and libraries 
 RUN apt update \
     && apt install -yq --no-install-recommends \
+        build-essential \
+        cmake \
         curl \
         jq \
         git \
