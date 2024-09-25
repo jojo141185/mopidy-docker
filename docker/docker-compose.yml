@@ -44,9 +44,9 @@ services:
         image: 'jojo141185/mopidy:latest'
         
         environment: 
-            # Select host specific mopidy user and audio group to run with correct permissions
+            # Set mopidy user and audio group id to match host's specific permissions
             - PUID=1000
-            - PGID=1000
+            - PGID=29
 
             # Host with pulseaudio
             - PULSE_SERVER=unix:/tmp/pulseaudio.socket

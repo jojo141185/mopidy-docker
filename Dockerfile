@@ -1,4 +1,8 @@
-# --- Build Node ---
+#################################################################
+# ===  Nuild Node                                         ====  #
+#
+# Container to build GStreamer plugins written in Rust
+
 FROM rust:slim-bullseye AS Builder
 LABEL org.opencontainers.image.authors="jojo141185"
 LABEL org.opencontainers.image.source="https://github.com/jojo141185/mopidy-docker/"
@@ -22,7 +26,7 @@ RUN echo "Build Image in version: $IMG_VERSION"
 # Switch to the root user while we do our changes
 USER root
 
-# Install all libraries and needs
+# Install build dependencies and libraries 
 RUN apt update \
     && apt install -yq --no-install-recommends \
         curl \
@@ -40,38 +44,44 @@ RUN apt update \
 
 WORKDIR /usr/src/gst-plugins-rs
 
-# Workaround for CSound-sys to compile on ARM64
-# COPY build/gst-plugins-rs/csound-sys.patch csound-sys.patch
-# RUN case ${TARGETPLATFORM} in \
-#         "linux/arm/v8") patch -ruN < ./csound-sys.patch ;; \
-#         "linux/arm64")  patch -ruN < ./csound-sys.patch ;; \
-#         *) 		 echo "No patch needed for ${TARGETPLATFORM}.";; \
-#    esac
+# ---------------------------------
+# ---  GStreamer Plugins        ---
+#
+# Get source of gst-plugins-rs
+#
+# # - Select the branch or tag to use
+# RUN if [ "$IMG_VERSION" = "latest" ]; then \
+#         GST_PLUGINS_RS_TAG=main; \
+#     elif [ "$IMG_VERSION" = "develop" ]; then \
+#         GST_PLUGINS_RS_TAG=main; \
+#     elif [ "$IMG_VERSION" = "release" ]; then \
+#         GST_PLUGINS_RS_TAG=$(curl -s https://gitlab.freedesktop.org/api/v4/projects/gstreamer%2Fgst-plugins-rs/repository/tags | jq -r '.[0].name'); \
+#     else \
+#         echo "Invalid version info for gst-plugins-rs: $IMG_VERSION"; \
+#         exit 1; \
+#     fi \ 
+#     && echo "Selected branch or tag for gst-plugins-rs: $GST_PLUGINS_RS_TAG" \
+#     # - Clone repository of gst-plugins-rs to workdir
+#     && git clone -c advice.detachedHead=false \
+# 	--single-branch --depth 1 \
+# 	--branch ${GST_PLUGINS_RS_TAG} \
+# 	https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs.git ./
+#
+# # - EXPERIMENTAL: For gstreamer-spotify set upgraded version number of dependency librespot to 0.4.2 
+# RUN sed -i 's/librespot = { version = "0.4", default-features = false }/librespot = { version = "0.4.2", default-features = false }/g' audio/spotify/Cargo.toml
 
-# Get source of GStreamer Plugins gst-plugins-rs
-# - Select the branch or tag to use
-RUN if [ "$IMG_VERSION" = "latest" ]; then \
-        GST_PLUGINS_RS_TAG=main; \
-    elif [ "$IMG_VERSION" = "develop" ]; then \
-        GST_PLUGINS_RS_TAG=main; \
-    elif [ "$IMG_VERSION" = "release" ]; then \
-        GST_PLUGINS_RS_TAG=$(curl -s https://gitlab.freedesktop.org/api/v4/projects/gstreamer%2Fgst-plugins-rs/repository/tags | jq -r '.[0].name'); \
-    else \
-        echo "Invalid version info for gst-plugins-rs: $IMG_VERSION"; \
-        exit 1; \
-    fi \ 
+# We currently require a forked version of gstreamer-spotify plugin which supports token-based login
+RUN GST_PLUGINS_RS_TAG=spotify-access-token \
     && echo "Selected branch or tag for gst-plugins-rs: $GST_PLUGINS_RS_TAG" \
     # - Clone repository of gst-plugins-rs to workdir
     && git clone -c advice.detachedHead=false \
-	--single-branch --depth 1 \
-	--branch ${GST_PLUGINS_RS_TAG} \
-	https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs.git ./
+    --single-branch --depth 1 \
+    --branch ${GST_PLUGINS_RS_TAG} \
+    https://gitlab.freedesktop.org/kingosticks/gst-plugins-rs.git ./
 
-# - EXPERIMENTAL: For gstreamer-spotify set upgraded version number of dependency librespot to 0.4.2 
-RUN sed -i 's/librespot = { version = "0.4", default-features = false }/librespot = { version = "0.4.2", default-features = false }/g' audio/spotify/Cargo.toml
 
 # Build GStreamer plugins written in Rust
-
+#
 # Set Cargo environment variables
 # Enabling cargo's sparse registry protocol is the easiest fix for 
 # Error "Value too large for defined data type;" on arm/v7 and linux/386
@@ -94,7 +104,16 @@ RUN export CSOUND_LIB_DIR="/usr/lib/$(uname -m)-linux-gnu" \
     && install -v -m 755 target/release/*.${SO_SUFFIX} ${DEST_DIR}/${PLUGINS_DIR} \
     && cargo clean
 
-# --- Release Node ---
+# ---------------------------------
+#
+#################################################################
+
+
+#################################################################
+# ===  Release Node                                       ====  #
+#
+# Container for mopidy  
+
 FROM debian:bookworm-slim as Release
 # Define Image version [latest, develop, release]
 ARG IMG_VERSION 
@@ -146,11 +165,9 @@ RUN pip3 config set global.break-system-packages true \
 # Note: target directory tree links directly to $GST_PLUGIN_PATH
 COPY --from=Builder /target/gst-plugins-rs/ /
 
-# # Install Node, to build Iris JS application
-# RUN curl -fsSL https://deb.nodesource.com/setup_14.x | bash - && \
-#     apt-get install -y nodejs
-
-# Install mopidy and (optional) DLNA-server dleyna from apt.mopidy.com
+# ---------------------------------
+# ---  Mopidy                   ---
+#
 # see https://docs.mopidy.com/en/latest/installation/debian/
 RUN mkdir -p /etc/apt/keyrings \
     && wget -q -O /etc/apt/keyrings/mopidy-archive-keyring.gpg https://apt.mopidy.com/mopidy.gpg \
@@ -159,7 +176,12 @@ RUN mkdir -p /etc/apt/keyrings \
     && apt-get install -y \ 
         mopidy \
     && rm -rf /var/lib/apt/lists/*
+#
+# ---------------------------------
 
+# ---------------------------------
+# --- Iris WebUI                 --
+#
 # Clone Iris from the repository and install in development mode.
 # This allows a binding at "/iris" to map to your local folder for development, rather than
 # installing using pip.
@@ -191,16 +213,21 @@ RUN if [ "$IMG_VERSION" = "latest" ]; then \
     && echo "1" >> /IS_CONTAINER \
     # Copy Version file
     && cp /iris/VERSION /
+#
+# ---------------------------------
 
-# Install Mopidy-Spotify
+# ---------------------------------
+# --- Plugin Mopidy-Spotify     ---
+#
 RUN if [ "$IMG_VERSION" = "latest" ]; then \
         MOPSPOT_BRANCH_OR_TAG=main; \
     elif [ "$IMG_VERSION" = "develop" ]; then \
+        # Get latest pre-release
         MOPSPOT_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/mopidy/mopidy-spotify/releases | jq -r 'map(select(.draft == false)) | .[0].tag_name'); \
     elif [ "$IMG_VERSION" = "release" ]; then \
+        # Get latest stable release. This is Currently not working / compatible -> take pre-release instead!
+        #MOPSPOT_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/mopidy/mopidy-spotify/releases | jq -r 'map(select(.draft == false and .prerelease == false)) | .[0].tag_name'); \
         MOPSPOT_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/mopidy/mopidy-spotify/releases | jq -r 'map(select(.draft == false)) | .[0].tag_name'); \
-        # Latest official release of MopidySpotify v4.1.1 is broken (see https://github.com/mopidy/mopidy-spotify/issues/110)
-        #MOPSPOT_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/mopidy/mopidy-spotify/releases/latest | jq -r .tag_name); \
     else \
         echo "Invalid version info for Mopidy-Spotify: $IMG_VERSION"; \
         exit 1; \
@@ -212,9 +239,16 @@ RUN if [ "$IMG_VERSION" = "latest" ]; then \
     && cd .. \
     && rm -rf mopidy-spotify
 
+# ---------------------------------
+
+# ---------------------------------
+# ---  Pip Packages             ---
+#
 # Install additional mopidy extensions and Python dependencies via pip
 COPY requirements.txt .
 RUN python3 -m pip install -r requirements.txt
+#
+# ---------------------------------
 
 # Cleanup
 RUN apt-get clean all \
@@ -257,3 +291,6 @@ EXPOSE 6600 6680 5555/udp
 
 ENTRYPOINT ["/usr/bin/dumb-init", "/entrypoint.sh"]
 CMD ["mopidy"]
+
+#
+#################################################################
