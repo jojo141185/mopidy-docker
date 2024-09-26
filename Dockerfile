@@ -170,14 +170,40 @@ COPY --from=Builder /target/gst-plugins-rs/ /
 # ---------------------------------
 # ---  Mopidy                   ---
 #
-# see https://docs.mopidy.com/en/latest/installation/debian/
-RUN mkdir -p /etc/apt/keyrings \
-    && wget -q -O /etc/apt/keyrings/mopidy-archive-keyring.gpg https://apt.mopidy.com/mopidy.gpg \
-    && wget -q -O /etc/apt/sources.list.d/mopidy.list https://apt.mopidy.com/bookworm.list \
-    && apt-get update \
-    && apt-get install -y \ 
-        mopidy \
-    && rm -rf /var/lib/apt/lists/*
+# Define steps for installation based on IMG_VERSION
+# - If "release", install from APT
+# - If "latest" or "develop", clone and install from source
+RUN if [ "$IMG_VERSION" = "release" ]; then \
+        # Install Mopidy from apt repository
+        # see https://docs.mopidy.com/en/latest/installation/debian/
+        echo "Installing Mopidy from APT for release version" \
+        && mkdir -p /etc/apt/keyrings \
+        && wget -q -O /etc/apt/keyrings/mopidy-archive-keyring.gpg https://apt.mopidy.com/mopidy.gpg \
+        && wget -q -O /etc/apt/sources.list.d/mopidy.list https://apt.mopidy.com/bookworm.list \
+        && apt-get update \
+        && apt-get install -y mopidy \
+        && rm -rf /var/lib/apt/lists/*; \
+    else \
+        # Install Mopidy from GitHub for "latest" or "develop" versions
+        if [ "$IMG_VERSION" = "latest" ]; then \
+            echo "Installing Mopidy from latest pre-release from GitHub" \
+            && MOPIDY_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/mopidy/mopidy/releases | jq -r 'map(select(.draft == false)) | .[0].tag_name'); \
+        elif [ "$IMG_VERSION" = "develop" ]; then \
+            echo "Installing Mopidy from main branch from GitHub" \
+            && MOPIDY_BRANCH_OR_TAG=main; \
+        else \
+            echo "Invalid version info for Mopidy: $IMG_VERSION" \
+            && exit 1; \
+        fi \
+        && echo "Selected branch or tag for Mopidy: $MOPIDY_BRANCH_OR_TAG" \
+        && git clone --depth 1 --single-branch -b ${MOPIDY_BRANCH_OR_TAG} https://github.com/mopidy/mopidy.git mopidy \
+        && cd mopidy \
+        && python3 -m pip install . \
+        && cd .. \
+        && rm -rf mopidy \
+        # Create mopidy user
+        && useradd -r -m -d /var/lib/mopidy -s /usr/sbin/nologin mopidy; \
+    fi
 #
 # ---------------------------------
 
@@ -222,13 +248,14 @@ RUN if [ "$IMG_VERSION" = "latest" ]; then \
 # --- Plugin Mopidy-Spotify     ---
 #
 RUN if [ "$IMG_VERSION" = "latest" ]; then \
-        MOPSPOT_BRANCH_OR_TAG=main; \
-    elif [ "$IMG_VERSION" = "develop" ]; then \
         # Get latest pre-release
         MOPSPOT_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/mopidy/mopidy-spotify/releases | jq -r 'map(select(.draft == false)) | .[0].tag_name'); \
+    elif [ "$IMG_VERSION" = "develop" ]; then \
+        MOPSPOT_BRANCH_OR_TAG=main; \
     elif [ "$IMG_VERSION" = "release" ]; then \
-        # Get latest stable release. This is Currently not working / compatible -> take pre-release instead!
+        ## Get latest stable release. This is Currently not working / compatible -> take pre-release instead!
         #MOPSPOT_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/mopidy/mopidy-spotify/releases | jq -r 'map(select(.draft == false and .prerelease == false)) | .[0].tag_name'); \
+        # Get latest pre-release
         MOPSPOT_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/mopidy/mopidy-spotify/releases | jq -r 'map(select(.draft == false)) | .[0].tag_name'); \
     else \
         echo "Invalid version info for Mopidy-Spotify: $IMG_VERSION"; \
