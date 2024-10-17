@@ -150,11 +150,13 @@ RUN apt-get update \
         python3-setuptools \
         python3-pip \
         # GStreamer (Plugins)
+        gstreamer1.0-pulseaudio \
+        gstreamer1.0-alsa \
+        gstreamer1.0-tools \
         gstreamer1.0-plugins-good \
         gstreamer1.0-plugins-bad \
         gstreamer1.0-plugins-ugly \
         gstreamer1.0-libav \
-        gstreamer1.0-pulseaudio \
     && rm -rf /var/lib/apt/lists/*
 
 # Adjust pip configuration to ensure compatibility with Bookworm and forthcoming Debian images with this Dockerfile

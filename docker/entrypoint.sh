@@ -50,6 +50,15 @@ if [ -n "$PGID" ] || [ -n "$PUID" ]; then
     fi
 fi
 
+# Update PulseAudio client.conf with PULSE_SERVER
+if [ -n "$PULSE_SERVER" ]; then
+    # Check and set PULSE_SERVER
+    export PULSE_SERVER
+    echo "Setting PulseAudio server to $PULSE_SERVER in /etc/pulse/client.conf"
+    # Ensure the PULSE_SERVER line exists in the file, and replace it
+    sed -i.bak "s|^default-server = .*|default-server = $PULSE_SERVER|" /etc/pulse/client.conf
+fi
+
 # Check and set PULSE_COOKIE_DATA
 if [ -n "$PULSE_COOKIE_DATA" ]; then
     echo -ne $(echo $PULSE_COOKIE_DATA | sed -e 's/../\\x&/g') > $HOME/pulse.cookie

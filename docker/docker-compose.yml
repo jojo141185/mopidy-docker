@@ -4,17 +4,23 @@ services:
         container_name: mopidy
         restart: always
         
-        ## Run container as user 
-        # By default this container should run as root to avoid permission issues
-        # Alternatively you can change to a specific privileged user and group
-        #user: ${PUID}:${PGID}
+        ## Run container as root
+        # This is required to modify the PUID and PGID by entrypoint script
         user: root
+
+        ## Run cointainer in privileged mode (can help with permission issues)
+        # privileged: true
+
+        ## Add container to audio group 
+        # change group name or id to your system's audio group
+        group_add:
+            - audio
         
         ## Add audio device 
         # Change to your system's audio device
         devices:
             - /dev/snd
-        
+
         volumes:
             # Mopidy config files
             - './config:/config'
@@ -25,32 +31,36 @@ services:
             # Store mopidy library and images on host (persistent)
             #- './local:/var/lib/mopidy/local'
             
-            # Keep spotify credentials (persistent)
+            # Keep spotify credetnials (persistent)
             #- './.spotify:/var/lib/mopidy/spotify'
-
-            ## Host audio settings
-            # Pulseaudio
-            - /run/user/1000/pulse/native:/tmp/pulseaudio.socket
-            # Pipewire
-            #- /run/user/1000/pipewire-0:/tmp/pulseaudio.socket
-            # Alsa sound
+            
+            ## Host Audio Support
+            # --- ALSA ---
+            # Mopidy Config: [audio] output=alsasink
+            - /dev/snd:/dev/snd     # ALSA device (necessary)
+            # Optional: If you have specific configurations or adjustments defined
             #- /etc/asound.conf:/etc/asound.conf
             #- /usr/share/alsa:/usr/share/alsa
-            
+
+            # --- PulseAudio ---
+            # Mopidy Config: [audio] output=pulsesink
+            # PulseAudio config (path should match with PUID)
+            - $XDG_RUNTIME_DIR/pulse:/run/user/1000/pulse                # runtime directory
+            - $XDG_RUNTIME_DIR/pulse/native:/run/user/1000/pulse/native  # socket
         ports:
-            - '6600:6600'
-            - '6680:6680'
+            - '6600:6600'   # JSON-RPC API and MPD protocol
+            - '6680:6680'   # HTTP WebUI
             
-        image: 'jojo141185/mopidy:latest'
+        image: 'jojo141185/mopidy:latest'   # ImageName:Version
         
         environment: 
             # Set mopidy user and audio group id to match host's specific permissions
             - PUID=1000
             - PGID=29
 
-            # Host with pulseaudio
-            - PULSE_SERVER=unix:/tmp/pulseaudio.socket
-            - PULSE_COOKIE=/tmp/pulseaudio.cookie
+            # PulseAudio server socket for communication (path should match with PUID)
+            - PULSE_SERVER=unix:/run/user/1000/pulse/native
+            #- PULSE_COOKIE_DATA=<YOUR_PULSE_COOKIE_DATA>  # (optional)
             
             # Install additional pip packages
-            #- PIP_PACKAGES=Mopidy-Party Mopidy-TuneIn Mopidy-Youtube yt-dlp
+            #- PIP_PACKAGES=Mopidy-TuneIn Mopidy-Youtube yt-dlp
