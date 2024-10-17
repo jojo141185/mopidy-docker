@@ -87,8 +87,7 @@ jobs:
       matrix:
         platform: ${{ fromJson(needs.determine_platform.outputs.platforms) }}
         image:
-          # Disable "latest" build until mopidy 4.0 as dependency in mopidy-spotify is available
-          #- latest
+          - latest
           - develop
           - release
       
