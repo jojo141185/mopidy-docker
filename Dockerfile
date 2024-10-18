@@ -1,9 +1,9 @@
 #################################################################
-# ===  Nuild Node                                         ====  #
+# ===  Build Node                                         ====  #
 #
 # Container to build GStreamer plugins written in Rust
 
-FROM rust:slim-bullseye AS Builder
+FROM rust:slim-bullseye AS builder
 LABEL org.opencontainers.image.authors="jojo141185"
 LABEL org.opencontainers.image.source="https://github.com/jojo141185/mopidy-docker/"
 # Automatic platform ARGs in the global scope
@@ -27,8 +27,8 @@ RUN echo "Build Image in version: $IMG_VERSION"
 USER root
 
 # Install build dependencies and libraries 
-RUN apt update \
-    && apt install -yq --no-install-recommends \
+RUN apt-get update \
+    && apt-get install -yq --no-install-recommends \
         build-essential \
         cmake \
         curl \
@@ -116,7 +116,7 @@ RUN export CSOUND_LIB_DIR="/usr/lib/$(uname -m)-linux-gnu" \
 #
 # Container for mopidy  
 
-FROM debian:bookworm-slim as Release
+FROM debian:bookworm-slim AS release
 # Define Image version [latest, develop, release]
 ARG IMG_VERSION 
 
@@ -131,19 +131,21 @@ RUN apt-get update \
         build-essential \
         nodejs \
         npm \
+        cmake \
         curl \
         jq \
         git \
         wget \
         gnupg2 \
+        gcc \
         dumb-init \
         graphviz-dev \
+        pkg-config \
         pulseaudio \
         libasound2-dev \
         libdbus-glib-1-dev \
         libgirepository1.0-dev \
         libcairo2-dev \
-        pkg-config \
         # Install Python
         python3-dev \
         python3-gst-1.0 \
@@ -157,7 +159,8 @@ RUN apt-get update \
         gstreamer1.0-plugins-bad \
         gstreamer1.0-plugins-ugly \
         gstreamer1.0-libav \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
 # Adjust pip configuration to ensure compatibility with Bookworm and forthcoming Debian images with this Dockerfile
 # PEP 668 introduces a method for Linux distributions to inform pip about restricting package installations outside a virtual environment.
@@ -167,7 +170,7 @@ RUN pip3 config set global.break-system-packages true \
 
 # Copy builded target data from Builder DEST_DIR to root
 # Note: target directory tree links directly to $GST_PLUGIN_PATH
-COPY --from=Builder /target/gst-plugins-rs/ /
+COPY --from=builder /target/gst-plugins-rs/ /
 
 # ---------------------------------
 # ---  Mopidy                   ---
