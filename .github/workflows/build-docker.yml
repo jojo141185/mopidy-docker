@@ -22,7 +22,7 @@ on:
           - all
           - linux/amd64
           - linux/arm64
-          - linux/arm/v7
+          #- linux/arm/v7 # Disabled for now
 
   push:
     branches:
@@ -62,7 +62,7 @@ jobs:
       - id: set-matrix
         run: |
           ALL_PLATFORMS=$(cat <<-END
-          ["linux/amd64","linux/arm64","linux/arm/v7"]
+          ["linux/amd64","linux/arm64"]     # Removed linux/arm/v7 ["linux/amd64","linux/arm64","linux/arm/v7"]
           END
           )
           if [ -z "${{ github.event.inputs.platform }}" ] || [ "${{ github.event.inputs.platform }}" == "all" ]; then
