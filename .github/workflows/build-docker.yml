@@ -22,7 +22,7 @@ on:
           - all
           - linux/amd64
           - linux/arm64
-          #- linux/arm/v7 # Disabled for now
+          - linux/arm/v7
 
   push:
     branches:
@@ -62,7 +62,7 @@ jobs:
       - id: set-matrix
         run: |
           ALL_PLATFORMS=$(cat <<-END
-          ["linux/amd64","linux/arm64"]     # Removed linux/arm/v7 ["linux/amd64","linux/arm64","linux/arm/v7"]
+            ["linux/amd64","linux/arm64","linux/arm/v7"]
           END
           )
           if [ -z "${{ github.event.inputs.platform }}" ] || [ "${{ github.event.inputs.platform }}" == "all" ]; then
@@ -231,8 +231,7 @@ jobs:
       fail-fast: false
       matrix:
         image:
-          # Disable "latest" build until mopidy 4.0 as dependency in mopidy-spotify is available
-          #- latest
+          - latest
           - develop
           - release
     runs-on: ubuntu-latest
