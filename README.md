@@ -67,9 +67,10 @@ Start the mopidy docker container with the docker run command:
     docker run -d \
         --name mopidy \
         --user root \
+        --group-add audio \
         --device /dev/snd \
         -v "$PWD/config:/config" \
-        -v "$PWD/media:/var/lib/mopidy/media:ro" \
+        -v "$PWD/media:/media:ro" \
         -v "$PWD/local:/var/lib/mopidy/local" \
         -p 6600:6600 -p 6680:6680 \
         jojo141185/mopidy:release
@@ -77,23 +78,27 @@ Start the mopidy docker container with the docker run command:
 The following table describes the docker arguments and environment variables:
 ARGUMENT|DEFAULT|DESCRIPTION
 ---|---|---|
---user | root | (optional) By default this container should run as root to avoid permission issues.
+--user | root | (recommended) This container should be run as root to avoid permission issues. Although the container operates under root privileges, the main process is executed as a restricted user named "mopidy" to minimize security risks.
+--group-add | audio | (recommended) Add host's audio group to container.
 --device | /dev/snd | (optional) For ALSA share the hosts sound device /dev/snd. For pulseaudio see this [guide](https://github.com/mviereck/x11docker/wiki/Container-sound:-ALSA-or-Pulseaudio) or use [snapcast](https://github.com/badaix/snapcast) for network / multiroom audio solution.
 -v | $PWD/config:/config | (essential) Cange $PWD/config path to the directory on host where your mopidy.conf is located.
--v | $PWD/media:/var/lib/mopidy/media:ro | (optional) Cange $PWD/media path to directory with local media files (ro=read only).
--v | $PWD/local:/var/lib/mopidy/local | (optional) Cange $PWD/local path to directory to store local metadata, libraries and playlists.
--p | 6600:6600 | (optional) Exposes MPD server to port 6600 on host (if you use for example ncmpcpp client).
--p | 6680:6680 | (optional) Exposes HTTP server to port 6680 on host (if you use your browser as client).
+-v | $PWD/media:/media:ro | (recommended) Cange $PWD/media path to directory with local media files (ro=read only).
+-v | $PWD/local:/var/lib/mopidy/local | (recommended) Cange $PWD/local path to directory to store local metadata, libraries and playlists.
+-p | 6600:6600 | (recommended) Exposes MPD server to port 6600 on host (if you use for example ncmpcpp client).
+-p | 6680:6680 | (recommended) Exposes HTTP server to port 6680 on host (this is essential, if you use the WebUI as client).
 -p | 5555:5555/udp | (optional) Exposes UDP streaming on port 5555 for FIFE sink (e.g. for visualizers).
 -e | PIP_PACKAGES= | (optional) Environment variable to inject some pip packages and mopidy extensions (i.e. Mopidy-Tidal) on upstart of container.
 -e | PUID= | (optional) Environment variable to define the user ID of the mopidy user to match with host's user ID. By default it is running with user mopidy (UID 102).
 -e | PGID= | (optional) Environment variable to define the group ID of the mopidy user to match with host's group ID. By default it is running with group audio (GID 29).
+-e | PULSE_SERVER= | (optional) Environment variable to define the PulseAudio socket to match with host's. This is optional and only needed if you use PulseAudio.
+-e | PULSE_COOKIE= | (optional) Environment variable to pass PulseAudio cookie path. This is optional and only needed if you use PulseAudio.
+-e | PULSE_COOKIE_DATA= | (optional) Environment variable to pass PulseAudio cookie data. This is optional and only needed if you use PulseAudio.
 
 Note:  
 
 - The host user specified by PUID should have access to the local volume mounts and its group specified by PGID must be a member of the system audio group to avoid permission issues with the audio device.
-- Depending on the number ans size of PIP_PACKAGES you have, it may take a while to start on first run. Please be patient and look at the logs.
-- On problems accessing the web interface, check mopidy.conf using the correct IP address. Try "hostname: 0.0.0.0" to listen to any and with no (=empty) access restrictions in "allowed_origins = ".
+- Depending on the number and size of PIP_PACKAGES you have, it may take a while to start on first run. Please be patient and look at the logs.
+- On problems accessing the web interface, check mopidy.conf using the correct IP address. Try "hostname: 0.0.0.0" to listen to any interface and check that "allowed_origins = " has no restrictions (is empty).
 
 ### docker compose
 

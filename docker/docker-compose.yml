@@ -26,18 +26,17 @@ services:
             - './config:/config'
             
             # Local media dir
-            #- './media:/var/lib/mopidy/media:ro'
+            #- './media:/media:ro'
             
             # Store mopidy library and images on host (persistent)
-            #- './local:/var/lib/mopidy/local'
+            #- './local:$HOME/local'
             
             # Keep spotify credetnials (persistent)
-            #- './.spotify:/var/lib/mopidy/spotify'
-            
+            #- './.spotify:$HOME/spotify'
+
             ## Host Audio Support
             # --- ALSA ---
             # Mopidy Config: [audio] output=alsasink
-            - /dev/snd:/dev/snd     # ALSA device (necessary)
             # Optional: If you have specific configurations or adjustments defined
             #- /etc/asound.conf:/etc/asound.conf
             #- /usr/share/alsa:/usr/share/alsa
@@ -45,8 +44,7 @@ services:
             # --- PulseAudio ---
             # Mopidy Config: [audio] output=pulsesink
             # PulseAudio config (path should match with PUID)
-            - $XDG_RUNTIME_DIR/pulse:/run/user/1000/pulse                # runtime directory
-            - $XDG_RUNTIME_DIR/pulse/native:/run/user/1000/pulse/native  # socket
+            - $XDG_RUNTIME_DIR/pulse/native:/tmp/pulseaudio.socket  # socket
         ports:
             - '6600:6600'   # JSON-RPC API and MPD protocol
             - '6680:6680'   # HTTP WebUI
@@ -59,8 +57,8 @@ services:
             - PGID=29
 
             # PulseAudio server socket for communication (path should match with PUID)
-            - PULSE_SERVER=unix:/run/user/1000/pulse/native
-            #- PULSE_COOKIE_DATA=<YOUR_PULSE_COOKIE_DATA>  # (optional)
+            - PULSE_SERVER=unix:/tmp/pulseaudio.socket
+            #- PULSE_COOKIE=/tmp/pulseaudio.cookie  # (optional)
             
             # Install additional pip packages
             #- PIP_PACKAGES=Mopidy-TuneIn Mopidy-Youtube yt-dlp

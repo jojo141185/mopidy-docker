@@ -238,10 +238,6 @@ RUN if [ "$IMG_VERSION" = "latest" ]; then \
     && npm install \
     && npm run prod \
     && python3 setup.py develop \
-    && mkdir -p /var/lib/mopidy/.config \
-    && ln -s /config /var/lib/mopidy/.config/mopidy \
-    # Allow mopidy user to run system commands (restart, local scan, etc)
-    && echo "mopidy ALL=NOPASSWD: /iris/mopidy_iris/system.sh" >> /etc/sudoers \
     # Enable container mode (disable restart option, etc.)
     && echo "1" >> /IS_CONTAINER \
     # Copy Version file
@@ -298,23 +294,42 @@ ENV DOCKER_GROUP=audio
 COPY docker/entrypoint.sh /entrypoint.sh
 
 # Copy Default configuration for mopidy
-COPY docker/mopidy/mopidy.example.conf /config/mopidy.conf
+COPY docker/mopidy/mopidy.example.conf /mopidy/config/mopidy.conf
 
 # Copy the pulse-client configuratrion
 COPY docker/mopidy/pulse-client.conf /etc/pulse/client.conf
 
-# Allows any user to run mopidy, but runs by default as a randomly generated UID/GID.
-# RUN useradd -ms /bin/bash mopidy
+# Set environment variables for Home and local music directory
 ENV HOME=/var/lib/mopidy
+ENV XDG_MUSIC_DIR=/media
+
+# Create environment and s to run mopidy and iris
 RUN set -ex \
-    && usermod -G audio,sudo,pulse-access $DOCKER_USER \
-    && mkdir /var/lib/mopidy/local \
-    && chown $DOCKER_USER:$DOCKER_GROUP -R $HOME /entrypoint.sh /iris \
-    && chmod go+rwx -R $HOME /entrypoint.sh /iris
+    # Create docker user and add groups
+    && id -u $DOCKER_USER &>/dev/null || useradd -ms /bin/bash $DOCKER_USER \
+    && usermod -aG audio,sudo,pulse-access,$DOCKER_GROUP $DOCKER_USER \
+    # Create mopidy config directory and set symlink
+    && mkdir -p "$HOME/.config" \
+    && ln -s /config "$HOME/.config/mopidy" \
+    # Create local directory
+    && mkdir -p "$HOME/local" \
+    # Add XDG_MUSIC_DIR to user-dirs to make it available for user
+    && echo "XDG_MUSIC_DIR=\"$XDG_MUSIC_DIR\"" >> "$HOME/.config/user-dirs.dirs" \
+    # Allow docker user to run system commands (restart, local scan, etc) with sudo
+    && echo "$DOCKER_USER ALL=NOPASSWD: /iris/mopidy_iris/system.sh" >> /etc/sudoers \
+    # Configure sudo to keep XDG_MUSIC_DIR
+    && echo "Defaults env_keep += \"XDG_MUSIC_DIR\"" >> /etc/sudoers \
+    # Set permissions
+    && chmod -R +x /entrypoint.sh \
+    && chown -R $DOCKER_USER:$DOCKER_GROUP $HOME
+
+# Set permissions that allows any user to run mopidy
+RUN chmod go+rwx -R /iris /version.json
 
 # Runs as mopidy user by default.
 USER $DOCKER_USER:$DOCKER_GROUP
 
+# Define volumes
 VOLUME ["/var/lib/mopidy/local"]
 
 # Port-List to expose:
