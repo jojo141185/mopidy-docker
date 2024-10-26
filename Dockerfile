@@ -73,7 +73,7 @@ WORKDIR /usr/src/gst-plugins-rs
 # RUN sed -i 's/librespot = { version = "0.4", default-features = false }/librespot = { version = "0.4.2", default-features = false }/g' audio/spotify/Cargo.toml
 
 # We currently require a forked version of gstreamer-spotify plugin which supports token-based login
-RUN GST_PLUGINS_RS_TAG=spotify-access-token \
+RUN GST_PLUGINS_RS_TAG="spotify-access-token-logging" \
     && echo "Selected branch or tag for gst-plugins-rs: $GST_PLUGINS_RS_TAG" \
     # - Clone repository of gst-plugins-rs to workdir
     && git clone -c advice.detachedHead=false \
