@@ -135,18 +135,18 @@ jobs:
         if: matrix.platform == 'linux/arm/v7' || matrix.platform == 'linux/i386'
         uses: jlumbroso/free-disk-space@main
         with:
-        # this might remove tools that are actually needed,
-        # if set to "true" but frees about 6 GB
-        tool-cache: false
-        
-        # all of these default to true, but feel free to set to
-        # "false" if necessary for your workflow
-        android: true
-        dotnet: true
-        haskell: true
-        large-packages: true
-        docker-images: true
-        swap-storage: true
+          # this might remove tools that are actually needed,
+          # if set to "true" but frees about 6 GB
+          tool-cache: false
+          
+          # all of these default to true, but feel free to set to
+          # "false" if necessary for your workflow
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
 
       # Github Action to get branch or tag information without the /ref/* prefix
       - name: Get branch names
