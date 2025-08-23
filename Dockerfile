@@ -259,9 +259,9 @@ RUN if [ "$IMG_VERSION" = "latest" ]; then \
         MOPSPOT_BRANCH_OR_TAG=main; \
     elif [ "$IMG_VERSION" = "release" ]; then \
         ## Get latest stable release. This is Currently not working / compatible -> take pre-release instead!
-        #MOPSPOT_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/mopidy/mopidy-spotify/releases | jq -r 'map(select(.draft == false and .prerelease == false)) | .[0].tag_name'); \
-        # Get latest pre-release
-        MOPSPOT_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/mopidy/mopidy-spotify/releases | jq -r 'map(select(.draft == false)) | .[0].tag_name'); \
+        #MOPSPOT_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/mopidy/mopidy-spotify/releases/latest | jq -r .tag_name); \
+        # Get latest pre-release v5.0.0a3 (last compatible version with stable mopidy release)
+        MOPSPOT_BRANCH_OR_TAG="v5.0.0a3"; \
     else \
         echo "Invalid version info for Mopidy-Spotify: $IMG_VERSION"; \
         exit 1; \
