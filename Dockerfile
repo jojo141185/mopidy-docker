@@ -112,22 +112,15 @@ RUN export CSOUND_LIB_DIR="/usr/lib/$(uname -m)-linux-gnu" \
 ################################################################################
 # Stage 2: Build Iris Web UI frontend
 #
-# This stage uses a Node.js environment to build the static assets (JS/CSS)
-# for the Iris web interface.
+# This stage only builds the static assets (JS/CSS) for the Iris web interface.
 ################################################################################
 FROM node:18-slim AS frontend-builder
 
 ARG IMG_VERSION
 
-# Install dependencies needed for this stage
+# Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        git \
-        curl \
-        jq \
-        ca-certificates \
-        python3 \
-        python3-setuptools \
-        python3-wheel \
+        git curl jq ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Install Iris WebUI from source ---
@@ -152,28 +145,19 @@ RUN \
     fi \
     && echo "Selected branch or tag for Iris: $IRIS_BRANCH_OR_TAG" \
     # Step 2: Clone Iris into a new directory /iris
-    && git clone --depth 1 --single-branch -b "$IRIS_BRANCH_OR_TAG" https://github.com/jaedb/Iris.git /iris
+    && git clone --depth 1 --single-branch -b "$IRIS_BRANCH_OR_TAG" https://github.com/jaedb/Iris.git /iris;
 
 # Now, set the working directory to the newly created /iris folder
 WORKDIR /iris
 
-# Build the frontend assets
-RUN npm install && npm run prod
-
-# This is the corrected command:
-# Build a Python wheel instead of running a full installation.
-# This packages the Iris python code without installing its dependencies here.
-RUN python3 setup.py bdist_wheel
-
-# Cleanup for a clean copy
-RUN rm -rf node_modules .git build
+# Build the frontend assets and then remove build dependencies
+RUN npm install && npm run prod && rm -rf node_modules
 
 ################################################################################
-# Stage 3: Build Python dependencies
+# Stage 3: Build Python wheels
 #
-# This stage installs all Python packages, including Mopidy and its extensions
-# from source, into a virtual environment. This keeps build tools and dev
-# libraries out of the final image.
+# This stage acts as a "wheel factory". It downloads and builds all Python
+# packages and their dependencies into a single folder of .whl files.
 ################################################################################
 FROM python:3.11-slim-bookworm AS python-builder
 
@@ -198,21 +182,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ninja-build \
     && rm -rf /var/lib/apt/lists/*
 
-# Create and activate a virtual environment
-ENV VENV_PATH=/opt/venv
-RUN python3 -m venv $VENV_PATH
-ENV PATH="$VENV_PATH/bin:$PATH"
+# Create a directory to store all our wheels
+WORKDIR /wheels
 
-# --- Install Mopidy from source ---
-# # Install Mopidy from apt repository
-# # see https://docs.mopidy.com/en/latest/installation/debian/
-# RUN echo "Installing Mopidy from APT for release version" \
-# && mkdir -p /etc/apt/keyrings \
-# && wget -q -O /etc/apt/keyrings/mopidy-archive-keyring.gpg https://apt.mopidy.com/mopidy.gpg \
-# && wget -q -O /etc/apt/sources.list.d/mopidy.list https://apt.mopidy.com/bookworm.list \
-# && apt-get update \
-# && apt-get install -y mopidy \
-# && rm -rf /var/lib/apt/lists/*; \
+# --- Collect all Python sources ---
+
+# --- Mopidy source ---
 RUN \
     # Step 1: Determine the correct branch or tag based on IMG_VERSION
     if [ "$IMG_VERSION" = "release" ]; then \
@@ -220,46 +195,55 @@ RUN \
         && MOPIDY_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/mopidy/mopidy/releases/latest | jq -r '.tag_name'); \
     elif [ "$IMG_VERSION" = "latest" ]; then \
         echo "Determining latest pre-release tag from GitHub..." \
-        # Pre-install pygobject in a version compatible with Mopidy's pyproject.toml
-        # This prevents pip from trying to install a newer, incompatible version.
-        && python3 -m pip install "pygobject<=3.50.0" \
         && MOPIDY_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/mopidy/mopidy/releases | jq -r 'map(select(.draft == false)) | .[0].tag_name'); \
     elif [ "$IMG_VERSION" = "develop" ]; then \
-        echo "Using main branch from GitHub..." \
-        && MOPIDY_BRANCH_OR_TAG=main; \
+        MOPIDY_BRANCH_OR_TAG=main; \
     else \
-        echo "Invalid version info for Mopidy: $IMG_VERSION" \
-        && exit 1; \
+        echo "Invalid version info for Mopidy: $IMG_VERSION" && exit 1; \
     fi \
-    \
-    # Step 2: Install Mopidy using the determined branch or tag
-    && echo "Selected branch or tag for Mopidy: $MOPIDY_BRANCH_OR_TAG" \
-    && git clone --depth 1 --single-branch -b ${MOPIDY_BRANCH_OR_TAG} https://github.com/mopidy/mopidy.git /mopidy \
-    && python3 -m pip install /mopidy
+    && echo "Cloning Mopidy tag: $MOPIDY_BRANCH_OR_TAG" \
+    && git clone --depth 1 --single-branch -b ${MOPIDY_BRANCH_OR_TAG} https://github.com/mopidy/mopidy.git /src/mopidy
 
-# --- Install Mopidy-Spotify plugin from source ---
+# --- Mopidy-Spotify source ---
 RUN \
     if [ "$IMG_VERSION" = "release" ]; then \
-        # Get latest pre-release v5.0.0a3 (last compatible version with stable mopidy release, needed for iris webui compatibility)
         MOPSPOT_BRANCH_OR_TAG="v5.0.0a3"; \
     elif [ "$IMG_VERSION" = "latest" ]; then \
-        MOPSPOT_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/mopidy/mopidy-spotify/releases | jq -r 'map(select(.draft == false)) | .[0].tag_name'); \
+        echo "Determining latest pre-release tag from GitHub..." \
+        && MOPSPOT_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/mopidy/mopidy-spotify/releases | jq -r 'map(select(.draft == false)) | .[0].tag_name'); \
     elif [ "$IMG_VERSION" = "develop" ]; then \
         MOPSPOT_BRANCH_OR_TAG=main; \
     else \
         echo "Invalid version info for Mopidy-Spotify: $IMG_VERSION" && exit 1; \
     fi \
-    && echo "Selected branch or tag for Mopidy-Spotify: $MOPSPOT_BRANCH_OR_TAG" \
-    && git clone --depth 1 --single-branch -b ${MOPSPOT_BRANCH_OR_TAG} https://github.com/mopidy/mopidy-spotify.git /mopidy-spotify \
-    && python3 -m pip install /mopidy-spotify
+    && echo "Cloning Mopidy-Spotify tag: $MOPSPOT_BRANCH_OR_TAG" \
+    && git clone --depth 1 --single-branch -b ${MOPSPOT_BRANCH_OR_TAG} https://github.com/mopidy/mopidy-spotify.git /src/mopidy-spotify
 
-# --- Install other Python dependencies ---
-COPY requirements.txt .
-RUN python3 -m pip install -r requirements.txt
+# --- Iris source ---
+COPY --from=frontend-builder /iris /src/iris
 
-# --- Install the Iris wheel that was built in frontend stage ---
-COPY --from=frontend-builder /iris/dist/*.whl /tmp/
-RUN python3 -m pip install /tmp/*.whl
+# --- Other Python dependencies source ---
+COPY requirements.txt /src/requirements.txt
+
+# --- Create constraints for specific build versions ---
+RUN if [ "$IMG_VERSION" = "latest" ]; then \
+        # Bugfix pin pygobject<=3.50.0 to resolve Mopidy dependency conflict with pre-release (v4.0.0a4)
+        # This prevents pip from trying to install a newer, incompatible version.
+        echo "pygobject<=3.50.0" > /src/constraints.txt; \
+    else \
+        touch /src/constraints.txt; \
+    fi
+
+# --- Build ALL packages and dependencies as wheels in a single step ---
+# We use 'pip wheel' to build .whl files from the local source directories
+# and download wheels for all other dependencies.
+RUN python3 -m pip wheel \
+    --wheel-dir=/wheels \
+    --constraint /src/constraints.txt \
+    --requirement /src/requirements.txt \
+    /src/mopidy \
+    /src/mopidy-spotify \
+    /src/iris
 
 ################################################################################
 # Stage 4: Final Release Image
@@ -267,10 +251,9 @@ RUN python3 -m pip install /tmp/*.whl
 # This is the final, optimized image. It only contains runtime dependencies
 # and copies pre-built artifacts from the builder stages.
 ################################################################################
-FROM python:3.11-slim-bookworm AS release
+FROM debian:bookworm-slim AS release
 
 ARG IMG_VERSION
-
 WORKDIR /
 
 # Install only essential runtime packages
@@ -278,9 +261,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         sudo \
         dumb-init \
         graphviz \
-        # Python and GStreamer integration
+        # Python
         python3 \
         python3-gst-1.0 \
+        python3-venv \
         # GStreamer runtime plugins
         gstreamer1.0-pulseaudio \
         gstreamer1.0-alsa \
@@ -293,14 +277,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         pulseaudio \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the pre-built Python virtual environment
+# --- Create a portable venv and install packages from local wheels ---
 ENV VENV_PATH=/opt/venv
-COPY --from=python-builder ${VENV_PATH} ${VENV_PATH}
+# 1. Create a fresh venv IN the final image. This ensures all paths are correct.
+RUN python3 -m venv ${VENV_PATH}
+
+# 2. Copy the pre-built wheels from our "wheel factory"
+COPY --from=python-builder /wheels /wheels
+COPY --from=python-builder /src/requirements.txt /wheels/requirements.txt
+
+# 3. Install ALL required packages from the local wheels folder, without network access.
+RUN ${VENV_PATH}/bin/pip install --no-index --find-links=/wheels \
+    -r /wheels/requirements.txt \
+    mopidy \
+    mopidy-spotify \
+    mopidy-iris \
+    && rm -rf /wheels
 
 # Copy the pre-built GStreamer plugin
 COPY --from=rust-builder /target/gst-plugins-rs/ /
 
-# Copy the pre-built Iris frontend and its Python backend parts
+# Copy the Iris directory which contains the static web assets
 COPY --from=frontend-builder /iris /iris
 
 # Set the PATH to use the virtual environment
@@ -318,11 +315,7 @@ ENV DOCKER_GROUP=audio
 
 # Start helper script.
 COPY docker/entrypoint.sh /entrypoint.sh
-
-# Copy Default configuration for mopidy
 COPY docker/mopidy/mopidy.example.conf /mopidy/config/mopidy.conf
-
-# Copy the pulse-client configuration
 COPY docker/mopidy/pulse-client.conf /etc/pulse/client.conf
 
 # Set environment variables for Home and local music directory
@@ -331,9 +324,11 @@ ENV XDG_MUSIC_DIR=/media
 
 # Create user, set permissions and create necessary directories
 RUN set -ex \
-    # Create docker user and add to required groups
+    # Create the group only if it does not already exist
     && (getent group $DOCKER_GROUP || groupadd -r $DOCKER_GROUP) \
+    # Create the user
     && useradd -r -ms /bin/bash -g $DOCKER_GROUP -d $HOME $DOCKER_USER \
+    # Add user to supplementary groups
     && usermod -aG audio,sudo,pulse-access $DOCKER_USER \
     # Create volume mount points so we can set permissions on them
     && mkdir -p /config /media "$HOME/local" \
@@ -344,7 +339,7 @@ RUN set -ex \
     && mkdir -p "$HOME/local" \
     # Add XDG_MUSIC_DIR to user-dirs to make it available for user
     && echo "XDG_MUSIC_DIR=\"$XDG_MUSIC_DIR\"" >> "$HOME/.config/user-dirs.dirs" \
-    # Allow docker user to run system commands (restart, local scan, etc) with sudo
+    # Allow docker user to run system commands with sudo
     && echo "$DOCKER_USER ALL=NOPASSWD: /iris/mopidy_iris/system.sh" >> /etc/sudoers \
     # Configure sudo to keep XDG_MUSIC_DIR
     && echo "Defaults env_keep += \"XDG_MUSIC_DIR\"" >> /etc/sudoers \
