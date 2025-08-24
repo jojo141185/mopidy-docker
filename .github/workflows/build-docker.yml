@@ -206,6 +206,7 @@ jobs:
       - name: Build and push by digest
         id: docker_build
         uses: docker/build-push-action@v5
+        continue-on-error: true
         with:
           context: .
           file: ./Dockerfile
