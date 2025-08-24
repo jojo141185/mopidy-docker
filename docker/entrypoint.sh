@@ -62,7 +62,7 @@ if [ -n "$PGID" ] || [ -n "$PUID" ]; then
 
             # Change ownership of all relevant directories
             echo "Changing ownership of all relevant directories."
-            chown -R $DOCKER_USER:$DOCKER_GROUP $HOME /iris /version.json /entrypoint.sh 
+            chown -R $DOCKER_USER:$DOCKER_GROUP $HOME /iris /VERSION /entrypoint.sh 
     else
         # If not root, skip user and group mapping
         echo "Skipping UID/GID mapping, because running as non-root user."
@@ -98,7 +98,7 @@ fi
 if [ -n "$PIP_PACKAGES" ]; then
     print_section "Installing Additional PIP-Packages"
     echo "-- INSTALLING PIP PACKAGES: $PIP_PACKAGES --"
-    python3 -m pip install --no-cache $PIP_PACKAGES
+    /opt/venv/bin/python3 -m pip install --no-cache $PIP_PACKAGES
 fi
 
 # Execute the passed command as the specified user

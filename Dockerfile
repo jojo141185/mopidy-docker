@@ -135,7 +135,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # ADD a remote file to act as a cache invalidator. Its content is not important,
 # but if the remote file changes, this layer's cache will break.
 # We place it in /tmp so it doesn't interfere with the git clone command.
-ADD https://api.github.com/repos/jaedb/Iris/git/refs/heads/master version.json
+ADD https://api.github.com/repos/jaedb/Iris/git/refs/heads/master /tmp/version.json
 
 # Clone the Iris repository into a new directory named /iris
 RUN \
@@ -302,7 +302,6 @@ COPY --from=rust-builder /target/gst-plugins-rs/ /
 
 # Copy the pre-built Iris frontend and its Python backend parts
 COPY --from=frontend-builder /iris /iris
-#COPY --from=frontend-builder /iris_python/lib/python3.11/site-packages/ /opt/venv/lib/python3.11/site-packages/
 
 # Set the PATH to use the virtual environment
 ENV PATH="${VENV_PATH}/bin:$PATH"
@@ -369,7 +368,7 @@ EXPOSE 6600 6680 5555/udp
 
 # Set the entrypoint to use dumb-init for proper signal handling
 ENTRYPOINT ["/usr/bin/dumb-init", "/entrypoint.sh"]
-CMD ["mopidy"]
+CMD ["/opt/venv/bin/mopidy"]
 
 #
 #################################################################
