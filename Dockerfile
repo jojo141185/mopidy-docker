@@ -110,94 +110,7 @@ RUN export CSOUND_LIB_DIR="/usr/lib/$(uname -m)-linux-gnu" \
 #################################################################
 
 ################################################################################
-# Stage 2: Build Python dependencies
-#
-# This stage installs all Python packages, including Mopidy and its extensions
-# from source, into a virtual environment. This keeps build tools and dev
-# libraries out of the final image.
-################################################################################
-FROM python:3.11-slim-bookworm AS python-builder
-
-# Forward the IMG_VERSION argument from the global scope
-ARG IMG_VERSION
-
-# Install build-time dependencies needed for Python packages
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential \
-        git \
-        curl \
-        jq \
-        graphviz-dev \
-        pkg-config \
-        libgirepository1.0-dev \
-        libcairo2-dev \
-        libasound2-dev \
-        libdbus-glib-1-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create and activate a virtual environment
-ENV VENV_PATH=/opt/venv
-RUN python3 -m venv $VENV_PATH
-ENV PATH="$VENV_PATH/bin:$PATH"
-
-# ---------------------------------
-# ---  Mopidy                   ---
-#
-# Define steps for installation based on IMG_VERSION
-# - If "release", install from APT
-# # Install Mopidy from apt repository
-# # see https://docs.mopidy.com/en/latest/installation/debian/
-# echo "Installing Mopidy from APT for release version" \
-# && mkdir -p /etc/apt/keyrings \
-# && wget -q -O /etc/apt/keyrings/mopidy-archive-keyring.gpg https://apt.mopidy.com/mopidy.gpg \
-# && wget -q -O /etc/apt/sources.list.d/mopidy.list https://apt.mopidy.com/bookworm.list \
-# && apt-get update \
-# && apt-get install -y mopidy \
-# && rm -rf /var/lib/apt/lists/*; \
-# - If "latest" or "develop", clone and install from source
-RUN \
-    # Step 1: Determine the correct branch or tag based on IMG_VERSION
-    if [ "$IMG_VERSION" = "release" ]; then \
-        echo "Determining latest stable release tag from GitHub..." \
-        && MOPIDY_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/mopidy/mopidy/releases/latest | jq -r '.tag_name'); \
-    elif [ "$IMG_VERSION" = "latest" ]; then \
-        echo "Determining latest pre-release tag from GitHub..." \
-        && MOPIDY_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/mopidy/mopidy/releases | jq -r 'map(select(.draft == false)) | .[0].tag_name'); \
-    elif [ "$IMG_VERSION" = "develop" ]; then \
-        echo "Using main branch from GitHub..." \
-        && MOPIDY_BRANCH_OR_TAG=main; \
-    else \
-        echo "Invalid version info for Mopidy: $IMG_VERSION" \
-        && exit 1; \
-    fi \
-    \
-    # Step 2: Install Mopidy using the determined branch or tag
-    && echo "Selected branch or tag for Mopidy: $MOPIDY_BRANCH_OR_TAG" \
-    && git clone --depth 1 --single-branch -b ${MOPIDY_BRANCH_OR_TAG} https://github.com/mopidy/mopidy.git /mopidy \
-    && python3 -m pip install /mopidy
-
-# --- Install Mopidy-Spotify plugin from source ---
-RUN \
-    if [ "$IMG_VERSION" = "release" ]; then \
-        # Get latest pre-release v5.0.0a3 (last compatible version with stable mopidy release, needed for iris webui compatibility)
-        MOPSPOT_BRANCH_OR_TAG="v5.0.0a3"; \
-    elif [ "$IMG_VERSION" = "latest" ]; then \
-        MOPSPOT_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/mopidy/mopidy-spotify/releases | jq -r 'map(select(.draft == false)) | .[0].tag_name'); \
-    elif [ "$IMG_VERSION" = "develop" ]; then \
-        MOPSPOT_BRANCH_OR_TAG=main; \
-    else \
-        echo "Invalid version info for Mopidy-Spotify: $IMG_VERSION" && exit 1; \
-    fi \
-    && echo "Selected branch or tag for Mopidy-Spotify: $MOPSPOT_BRANCH_OR_TAG" \
-    && git clone --depth 1 --single-branch -b ${MOPSPOT_BRANCH_OR_TAG} https://github.com/mopidy/mopidy-spotify.git /mopidy-spotify \
-    && python3 -m pip install /mopidy-spotify
-
-# --- Install other Python dependencies ---
-COPY requirements.txt .
-RUN python3 -m pip install -r requirements.txt
-
-################################################################################
-# Stage 3: Build Iris Web UI frontend
+# Stage 2: Build Iris Web UI frontend
 #
 # This stage uses a Node.js environment to build the static assets (JS/CSS)
 # for the Iris web interface.
@@ -254,6 +167,99 @@ RUN python3 setup.py bdist_wheel
 
 # Cleanup for a clean copy
 RUN rm -rf node_modules .git build
+
+################################################################################
+# Stage 3: Build Python dependencies
+#
+# This stage installs all Python packages, including Mopidy and its extensions
+# from source, into a virtual environment. This keeps build tools and dev
+# libraries out of the final image.
+################################################################################
+FROM python:3.11-slim-bookworm AS python-builder
+
+ARG IMG_VERSION
+
+# Install build-time dependencies needed for Python packages.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        git \
+        curl \
+        jq \
+        graphviz-dev \
+        pkg-config \
+        gobject-introspection \
+        libgirepository1.0-dev \
+        libglib2.0-dev \
+        libffi-dev \
+        libcairo2-dev \
+        libasound2-dev \
+        libdbus-glib-1-dev \
+        meson \
+        ninja-build \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create and activate a virtual environment
+ENV VENV_PATH=/opt/venv
+RUN python3 -m venv $VENV_PATH
+ENV PATH="$VENV_PATH/bin:$PATH"
+
+# --- Install Mopidy from source ---
+# # Install Mopidy from apt repository
+# # see https://docs.mopidy.com/en/latest/installation/debian/
+# RUN echo "Installing Mopidy from APT for release version" \
+# && mkdir -p /etc/apt/keyrings \
+# && wget -q -O /etc/apt/keyrings/mopidy-archive-keyring.gpg https://apt.mopidy.com/mopidy.gpg \
+# && wget -q -O /etc/apt/sources.list.d/mopidy.list https://apt.mopidy.com/bookworm.list \
+# && apt-get update \
+# && apt-get install -y mopidy \
+# && rm -rf /var/lib/apt/lists/*; \
+RUN \
+    # Step 1: Determine the correct branch or tag based on IMG_VERSION
+    if [ "$IMG_VERSION" = "release" ]; then \
+        echo "Determining latest stable release tag from GitHub..." \
+        && MOPIDY_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/mopidy/mopidy/releases/latest | jq -r '.tag_name'); \
+    elif [ "$IMG_VERSION" = "latest" ]; then \
+        echo "Determining latest pre-release tag from GitHub..." \
+        # Pre-install pygobject in a version compatible with Mopidy's pyproject.toml
+        # This prevents pip from trying to install a newer, incompatible version.
+        && python3 -m pip install "pygobject<=3.50.0" \
+        && MOPIDY_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/mopidy/mopidy/releases | jq -r 'map(select(.draft == false)) | .[0].tag_name'); \
+    elif [ "$IMG_VERSION" = "develop" ]; then \
+        echo "Using main branch from GitHub..." \
+        && MOPIDY_BRANCH_OR_TAG=main; \
+    else \
+        echo "Invalid version info for Mopidy: $IMG_VERSION" \
+        && exit 1; \
+    fi \
+    \
+    # Step 2: Install Mopidy using the determined branch or tag
+    && echo "Selected branch or tag for Mopidy: $MOPIDY_BRANCH_OR_TAG" \
+    && git clone --depth 1 --single-branch -b ${MOPIDY_BRANCH_OR_TAG} https://github.com/mopidy/mopidy.git /mopidy \
+    && python3 -m pip install /mopidy
+
+# --- Install Mopidy-Spotify plugin from source ---
+RUN \
+    if [ "$IMG_VERSION" = "release" ]; then \
+        # Get latest pre-release v5.0.0a3 (last compatible version with stable mopidy release, needed for iris webui compatibility)
+        MOPSPOT_BRANCH_OR_TAG="v5.0.0a3"; \
+    elif [ "$IMG_VERSION" = "latest" ]; then \
+        MOPSPOT_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/mopidy/mopidy-spotify/releases | jq -r 'map(select(.draft == false)) | .[0].tag_name'); \
+    elif [ "$IMG_VERSION" = "develop" ]; then \
+        MOPSPOT_BRANCH_OR_TAG=main; \
+    else \
+        echo "Invalid version info for Mopidy-Spotify: $IMG_VERSION" && exit 1; \
+    fi \
+    && echo "Selected branch or tag for Mopidy-Spotify: $MOPSPOT_BRANCH_OR_TAG" \
+    && git clone --depth 1 --single-branch -b ${MOPSPOT_BRANCH_OR_TAG} https://github.com/mopidy/mopidy-spotify.git /mopidy-spotify \
+    && python3 -m pip install /mopidy-spotify
+
+# --- Install other Python dependencies ---
+COPY requirements.txt .
+RUN python3 -m pip install -r requirements.txt
+
+# --- Install the Iris wheel that was built in frontend stage ---
+COPY --from=frontend-builder /iris/dist/*.whl /tmp/
+RUN python3 -m pip install /tmp/*.whl
 
 ################################################################################
 # Stage 4: Final Release Image
