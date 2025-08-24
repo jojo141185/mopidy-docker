@@ -226,8 +226,18 @@ COPY --from=frontend-builder /iris /src/iris
 COPY requirements.txt /src/requirements.txt
 
 # --- Create constraints for specific build versions ---
-RUN if [ "$IMG_VERSION" = "latest" ]; then \
-        # Bugfix pin pygobject<=3.50.0 to resolve Mopidy dependency conflict with pre-release (v4.0.0a4)
+RUN \
+    # We define a variable for the Mopidy source with a potential version override
+    MOPIDY_SOURCE="/src/mopidy"; \
+    \
+    # If building for 'develop', prepend the config setting to the source path
+    if [ "$IMG_VERSION" = "develop" ]; then \
+        echo "Faking Mopidy version for 'develop' build..."; \
+        MOPIDY_SOURCE="--config-settings=scm.version=99.0.0 /src/mopidy"; \
+    fi
+
+RUN if [ "$IMG_VERSION" = "latest" ] || [ "$IMG_VERSION" = "develop" ]; then \
+        # Bugfix pin pygobject<=3.50.0 to resolve Mopidy dependency conflict with pygobject (see pyproject.toml)
         # This prevents pip from trying to install a newer, incompatible version.
         echo "pygobject<=3.50.0" > /src/constraints.txt; \
     else \
@@ -241,7 +251,7 @@ RUN python3 -m pip wheel \
     --wheel-dir=/wheels \
     --constraint /src/constraints.txt \
     --requirement /src/requirements.txt \
-    /src/mopidy \
+    $MOPIDY_SOURCE \
     /src/mopidy-spotify \
     /src/iris
 
