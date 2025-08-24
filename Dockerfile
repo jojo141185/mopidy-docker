@@ -271,9 +271,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         sudo \
         dumb-init \
         graphviz \
-        # Python
+        # For installing pip packages from git
+        git \
+        # Python and GObject/GStreamer integration
         python3 \
         python3-gst-1.0 \
+        python3-gi \
         python3-venv \
         # GStreamer runtime plugins
         gstreamer1.0-pulseaudio \
