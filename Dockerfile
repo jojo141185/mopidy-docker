@@ -292,8 +292,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # --- Create a portable venv and install packages from local wheels ---
 ENV VENV_PATH=/opt/venv
-# 1. Create a fresh venv IN the final image. This ensures all paths are correct.
-RUN python3 -m venv ${VENV_PATH}
+# 1. Create a fresh venv IN the final image, allowing it to access system packages.
+#    This is crucial for pygobject/gi to find the system's GStreamer bindings.
+RUN python3 -m venv --system-site-packages ${VENV_PATH}
 
 # 2. Copy the pre-built wheels from our "wheel factory"
 COPY --from=python-builder /wheels /wheels
