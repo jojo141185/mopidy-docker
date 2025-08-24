@@ -267,7 +267,7 @@ RUN python3 -m pip install /tmp/*.whl
 # This is the final, optimized image. It only contains runtime dependencies
 # and copies pre-built artifacts from the builder stages.
 ################################################################################
-FROM debian:bookworm-slim AS release
+FROM python:3.11-slim-bookworm AS release
 
 ARG IMG_VERSION
 
