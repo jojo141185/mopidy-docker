@@ -134,18 +134,26 @@ ADD https://api.github.com/repos/jaedb/Iris/git/refs/heads/master /tmp/version.j
 RUN \
     # Step 1: Determine the correct branch or tag based on IMG_VERSION
     if [ "$IMG_VERSION" = "latest" ]; then \
-        IRIS_BRANCH_OR_TAG=master; \
+        #IRIS_BRANCH_OR_TAG=master; \
+        # Temp fix: Use my branch ith compatibility fix for Mopidy v4+
+        IRIS_REPO_URL="https://github.com/jojo141185/Iris.git"; \
+        IRIS_BRANCH_OR_TAG="mopidy-alpha-compatibility"; \
     elif [ "$IMG_VERSION" = "develop" ]; then \
-        IRIS_BRANCH_OR_TAG=develop; \
+        #IRIS_BRANCH_OR_TAG=develop; \
+        # Temp fix: Use my branch ith compatibility fix for Mopidy v4+
+        IRIS_REPO_URL="https://github.com/jojo141185/Iris.git"; \
+        IRIS_BRANCH_OR_TAG="mopidy-alpha-compatibility"; \
     elif [ "$IMG_VERSION" = "release" ]; then \
+        # For 'release', use the original repository
+        IRIS_REPO_URL="https://github.com/jaedb/Iris.git"; \
         IRIS_BRANCH_OR_TAG=$(curl -s https://api.github.com/repos/jaedb/Iris/releases/latest | jq -r .tag_name); \
     else \
         echo "Invalid version info for Iris: $IMG_VERSION"; \
         exit 1; \
     fi \
-    && echo "Selected branch or tag for Iris: $IRIS_BRANCH_OR_TAG" \
+    && echo "Selected branch or tag for Iris: $IRIS_BRANCH_OR_TAG from $IRIS_REPO_URL" \
     # Step 2: Clone Iris into a new directory /iris
-    && git clone --depth 1 --single-branch -b "$IRIS_BRANCH_OR_TAG" https://github.com/jaedb/Iris.git /iris;
+    && git clone --depth 1 --single-branch -b "$IRIS_BRANCH_OR_TAG" "$IRIS_REPO_URL" /iris;
 
 # Now, set the working directory to the newly created /iris folder
 WORKDIR /iris
