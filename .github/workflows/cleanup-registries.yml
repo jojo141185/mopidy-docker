@@ -1,0 +1,49 @@
+name: Cleanup Container Registries
+
+on:
+  # Run weekly on Sunday at 3 AM UTC
+  schedule:
+    - cron: '0 3 * * 0'
+  # Allow manual trigger from the Actions tab
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run mode (true does not delete, only simulates)'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  cleanup:
+    name: Run Registry Cleanup
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write # Required for the GHCR cleanup action
+
+    steps:
+      - name: Clean up Docker Hub
+        uses: lostlink/docker-cleanup@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          repositories: 'mopidy'
+          # Custom rule to delete all tags starting with 'test_' older than 30 days
+          custom-patterns: |
+            {
+              "^test_.*": 30
+            }
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run || 'false' }}
+          verbose: true
+
+      - name: Clean up GitHub Container Registry (GHCR)
+        uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          # Delete all tags starting with 'test_'
+          delete-tags: 'test_*'
+          # But only if they are older than 30 days
+          older-than: '30 days'
+          keep-n-untagged: 1
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run || 'false' }}
