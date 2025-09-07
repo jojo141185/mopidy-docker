@@ -389,10 +389,21 @@ jobs:
       # Delete tag from Docker Hub using the official hub-tool
       - name: Delete tag from Docker Hub using hub-tool
         run: |
-          VERSION=v0.4.4
-          curl -sL https://github.com/docker/hub-tool/releases/download/${VERSION}/hub-tool-linux-amd64 -o hub-tool
+          # Define the newer version and asset format
+          VERSION=v0.4.6
+          ASSET_URL="https://github.com/docker/hub-tool/releases/download/${VERSION}/hub-tool-linux-amd64.tar.gz"
+
+          # Download the compressed archive
+          curl -sL "${ASSET_URL}" -o hub-tool.tar.gz
+          
+          # Extract the binary from the archive
+          tar -xzf hub-tool.tar.gz
+
+          # Make the extracted binary executable and move it to the path
           chmod +x hub-tool
           sudo mv hub-tool /usr/local/bin/hub-tool
+
+          # Login and delete the tag as before
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | hub-tool login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
           hub-tool tag rm ${{ env.DOCKERHUB_SLUG }}:${{ steps.construct.outputs.tag }} --force
         continue-on-error: true # Continue if tag does not exist
@@ -403,6 +414,6 @@ jobs:
         with:
           owner: ${{ github.repository_owner }}
           name: mopidy
-          token: ${{ secrets.WORKFLOW_PAT }} # Using the correct secret name
+          token: ${{ secrets.WORKFLOW_PAT }}
           tag: ${{ steps.construct.outputs.tag }}
         continue-on-error: true # Continue if tag does not exist
