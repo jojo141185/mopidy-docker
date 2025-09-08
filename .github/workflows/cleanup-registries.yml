@@ -29,7 +29,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
-          repositories: 'mopidy'
+          repositories: ${{ env.DOCKERHUB_SLUG }}
           # Custom rule to delete all tags starting with 'test_' older than 30 days
           custom-patterns: |
             {
