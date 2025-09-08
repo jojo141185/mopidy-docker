@@ -16,6 +16,11 @@ on:
           - 'true'
           - 'false'
 
+# 2. Environment variables available to all jobs in THIS workflow
+env:
+  DOCKERHUB_SLUG: ${{ secrets.DOCKERHUB_USERNAME }}/mopidy
+  GHCR_SLUG: ghcr.io/${{ github.repository_owner }}/mopidy
+
 jobs:
   cleanup:
     name: Run Registry Cleanup
@@ -25,7 +30,7 @@ jobs:
 
     steps:
       - name: Clean up Docker Hub
-        uses: lostlink/docker-cleanup@v1
+        uses: lostlink/docker-cleanup@v1.0.1
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
@@ -41,6 +46,8 @@ jobs:
       - name: Clean up GitHub Container Registry (GHCR)
         uses: dataaxiom/ghcr-cleanup-action@v1
         with:
+          # The repository to clean up
+          # repository: ${{ env.GHCR_SLUG }} # package and repository will be retrieved dynamically from the environment
           # Delete all tags starting with 'test_'
           delete-tags: 'test_*'
           # But only if they are older than 30 days
