@@ -33,7 +33,7 @@ jobs:
         uses: lostlink/docker-cleanup@v1.0.1
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
           repositories: ${{ env.DOCKERHUB_SLUG }}
           # Custom rule to delete all tags starting with 'test_' older than 30 days
           custom-patterns: |
