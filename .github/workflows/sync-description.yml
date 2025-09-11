@@ -31,14 +31,14 @@ jobs:
         steps:
             # Github action to get branch or tag information without the /ref/* prefix
           - name: Checkout
-            uses: actions/checkout@v3
+            uses: actions/checkout@v4
           
             # Github action to sync description files to docker hub
           - name: Docker Hub README & description sync
-            uses: peter-evans/dockerhub-description@v3
+            uses: peter-evans/dockerhub-description@v4
             with:
               username: ${{ secrets.DOCKERHUB_USERNAME }}
-              password: ${{ secrets.DOCKERHUB_PASSWORD }}
+              password: ${{ secrets.DOCKERHUB_TOKEN }}
               repository: ${{ env.DOCKERHUB_SLUG }}
               readme-filepath: ./README.md
               short-description: Mopidy music server with Iris Web-UI, Spotify support and many other extensions.

@@ -29,6 +29,10 @@ jobs:
       packages: write # Required for the GHCR cleanup action
 
     steps:
+        # Github action to get branch or tag information
+      - name: Checkout
+        uses: actions/checkout@v4
+      
       - name: Clean up Docker Hub
         uses: lostlink/docker-cleanup@v1.0.1
         with:
@@ -46,8 +50,8 @@ jobs:
       - name: Clean up GitHub Container Registry (GHCR)
         uses: dataaxiom/ghcr-cleanup-action@v1
         with:
-          # The repository to clean up
-          # repository: ${{ env.GHCR_SLUG }} # package and repository will be retrieved dynamically from the environment
+          # The repository to clean up. Optional, current will be retrieved dyn. from environment.
+          # repository: ${{ env.GHCR_SLUG }}
           # Delete all tags starting with 'test_'
           delete-tags: 'test_*'
           # But only if they are older than 30 days
