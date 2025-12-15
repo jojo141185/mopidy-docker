@@ -159,7 +159,7 @@ RUN npm install && npm run prod && rm -rf node_modules
 # This stage acts as a "wheel factory". It downloads and builds all Python
 # packages and their dependencies into a single folder of .whl files.
 ################################################################################
-FROM python:3.11-slim-bookworm AS python-builder
+FROM python:3.13-slim-bookworm AS python-builder
 
 ARG IMG_VERSION
 
@@ -228,32 +228,22 @@ COPY requirements.txt /src/requirements.txt
 # --- Create constraints for specific build versions ---
 RUN \
     # We define a variable for the Mopidy source with a potential version override
-    MOPIDY_SOURCE="/src/mopidy"; \
-    \
-    # If building for 'develop', prepend the config setting to the source path
-    if [ "$IMG_VERSION" = "develop" ]; then \
-        echo "Faking Mopidy version for 'develop' build..."; \
-        MOPIDY_SOURCE="--config-settings=scm.version=99.0.0 /src/mopidy"; \
-    fi
-
-RUN if [ "$IMG_VERSION" = "latest" ] || [ "$IMG_VERSION" = "develop" ]; then \
-        # Bugfix pin pygobject<=3.50.0 to resolve Mopidy dependency conflict with pygobject (see pyproject.toml)
-        # This prevents pip from trying to install a newer, incompatible version.
-        echo "pygobject<=3.50.0" > /src/constraints.txt; \
-    else \
-        touch /src/constraints.txt; \
-    fi
-
-# --- Build ALL packages and dependencies as wheels in a single step ---
-# We use 'pip wheel' to build .whl files from the local source directories
-# and download wheels for all other dependencies.
-RUN python3 -m pip wheel \
-    --wheel-dir=/wheels \
-    --constraint /src/constraints.txt \
-    --requirement /src/requirements.txt \
-    $MOPIDY_SOURCE \
-    /src/mopidy-spotify \
-    /src/iris
+    MOPIDY_SOURCE="/src/mopidy" \
+    # Bugfix pin pygobject==3.50.0 to resolve Mopidy dependency conflict with pygobject (see pyproject.toml)
+    # This prevents pip from trying to install a newer, incompatible version.
+    && echo "pygobject==3.50.0" > /src/constraints.txt \
+    # --- Build ALL packages and dependencies as wheels in a single step ---
+    # We use 'pip wheel' to build .whl files from the local source directories
+    # and download wheels for all other dependencies.
+    && python3 -m pip wheel \
+        --no-cache-dir \
+        --wheel-dir=/wheels \
+        --constraint /src/constraints.txt \
+        --requirement /src/requirements.txt \
+        PyGObject \
+        $MOPIDY_SOURCE \
+        /src/mopidy-spotify \
+        /src/iris
 
 ################################################################################
 # Stage 4: Final Release Image
@@ -261,7 +251,7 @@ RUN python3 -m pip wheel \
 # This is the final, optimized image. It only contains runtime dependencies
 # and copies pre-built artifacts from the builder stages.
 ################################################################################
-FROM debian:bookworm-slim AS release
+FROM python:3.13-slim-bookworm AS release
 
 ARG IMG_VERSION
 WORKDIR /
@@ -274,11 +264,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         # For installing pip packages from git
         git \
         # Python and GObject/GStreamer integration
-        python3 \
-        python3-gst-1.0 \
-        python3-gi \
-        python3-venv \
-        # GStreamer runtime plugins
+        gir1.2-glib-2.0 \
+        gir1.2-gstreamer-1.0 \
+        gir1.2-gst-plugins-base-1.0 \
+        gir1.2-gst-plugins-bad-1.0 \
+        # Audio & GStreamer Plugins
         gstreamer1.0-pulseaudio \
         gstreamer1.0-alsa \
         gstreamer1.0-tools \
@@ -286,8 +276,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         gstreamer1.0-plugins-bad \
         gstreamer1.0-plugins-ugly \
         gstreamer1.0-libav \
-        # Audio
         pulseaudio \
+        # Venv module ist in python images schon drin, aber falls wir system tools brauchen:
+        python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Create a portable venv and install packages from local wheels ---
