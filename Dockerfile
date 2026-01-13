@@ -1,10 +1,11 @@
 ################################################################################
 # Stage 1: Build GStreamer plugins written in Rust
 #
-# This stage uses a Rust environment to compile the custom GStreamer plugins
-# from source. The only output is the compiled shared library (.so file).
+# This stage uses a Rust environment to compile the custom GStreamer plugins.
+# We keep using slim-bookworm for Rust to ensure the glibc requirements of the
+# produced binary are low enough to run on Trixie (Forward Compatibility).
 ################################################################################
-FROM rust:slim-bullseye AS rust-builder
+FROM rust:slim-bookworm AS rust-builder
 
 LABEL org.opencontainers.image.authors="jojo141185"
 LABEL org.opencontainers.image.source="https://github.com/jojo141185/mopidy-docker/"
@@ -22,7 +23,7 @@ RUN printf "I'm building for TARGETPLATFORM=${TARGETPLATFORM}" \
     && printf ", TARGETARCH=${TARGETARCH}" \
     && printf ", TARGETVARIANT=${TARGETVARIANT} \n" \
     && printf "With uname -s : " && uname -s \
-    && printf "and  uname -m : " && uname -mm \
+    && printf "and  uname -m : " && uname -m \
     && printf "\n --------------------------- \n" \
     && printf "Build Image in version: ${IMG_VERSION}"
 
@@ -37,10 +38,10 @@ RUN apt-get update && apt-get install -yq --no-install-recommends \
         libgstreamer-plugins-base1.0-dev \
         libgstreamer1.0-dev \
         libcsound64-dev \
-        libclang-11-dev \
+        libclang-dev \
         libpango1.0-dev  \
         libdav1d-dev \
-        # libgtk-4-dev \ Only in bookworm
+        # libgtk-4-dev \ Only in bookworm/trixie
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/gst-plugins-rs
@@ -72,22 +73,21 @@ WORKDIR /usr/src/gst-plugins-rs
 # RUN sed -i 's/librespot = { version = "0.4", default-features = false }/librespot = { version = "0.4.2", default-features = false }/g' audio/spotify/Cargo.toml
 
 # We currently require a forked version of gstreamer-spotify plugin which supports token-based login
-RUN GST_PLUGINS_RS_TAG="spotify-logging-librespot-ba3d501b" \
-    && echo "Selected branch or tag for gst-plugins-rs: $GST_PLUGINS_RS_TAG" \
+# UPDATED: Using specific commit hash 3aab0473 which includes librespot 0.8.0 support
+RUN GST_PLUGINS_RS_TAG="3aab0473" \
+    && echo "Selected commit hash for gst-plugins-rs: $GST_PLUGINS_RS_TAG" \
     # - Clone repository of gst-plugins-rs to workdir
+    # Note: We clone the branch first, then checkout the specific hash to be safe
     && git clone -c advice.detachedHead=false \
-        --single-branch --depth 1 \
-        --branch ${GST_PLUGINS_RS_TAG} \
-        https://gitlab.freedesktop.org/kingosticks/gst-plugins-rs.git ./
+        --single-branch \
+        --branch spotify-logging \
+        https://gitlab.freedesktop.org/kingosticks/gst-plugins-rs.git ./ \
+    && git checkout "$GST_PLUGINS_RS_TAG"
 
 
 # Build GStreamer plugins written in Rust
 #
 # Set Cargo environment variables
-# Enabling cargo's sparse registry protocol is the easiest fix for 
-# Error "Value too large for defined data type;" on arm/v7 and linux/386
-# https://github.com/rust-lang/cargo/issues/8719
-#ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL sparse
 ENV DEST_DIR="/target/gst-plugins-rs"
 ENV CARGO_PROFILE_RELEASE_DEBUG="false"
 # Cargo Build, with options:
@@ -158,21 +158,30 @@ RUN npm install && npm run prod && rm -rf node_modules
 #
 # This stage acts as a "wheel factory". It downloads and builds all Python
 # packages and their dependencies into a single folder of .whl files.
+# CHANGED: Switched to debian:trixie-slim (Testing) to provide Python >=3.13
+# and newer system libraries required by Mopidy 4.0 alpha.
 ################################################################################
-FROM python:3.13-slim-bookworm AS python-builder
+FROM debian:trixie-slim AS python-builder
 
 ARG IMG_VERSION
 
 # Install build-time dependencies needed for Python packages.
+# We include python3-full to ensure venv and all stdlibs are available.
+# We also include development headers (libgirepository1.0-dev) to allow
+# building PyGObject >= 3.50 if the system version is too old.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
         git \
         curl \
         jq \
+        python3-full \
+        python3-pip \
+        python3-dev \
         graphviz-dev \
         pkg-config \
         gobject-introspection \
         libgirepository1.0-dev \
+        libgirepository-2.0-dev \
         libglib2.0-dev \
         libffi-dev \
         libcairo2-dev \
@@ -182,7 +191,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ninja-build \
     && rm -rf /var/lib/apt/lists/*
 
-# Create a directory to store all our wheels
 WORKDIR /wheels
 
 # --- Collect all Python sources ---
@@ -225,16 +233,15 @@ COPY --from=frontend-builder /iris /src/iris
 # --- Other Python dependencies source ---
 COPY requirements.txt /src/requirements.txt
 
-# --- Create constraints for specific build versions ---
+# --- Build wheels ---
 RUN \
-    # We define a variable for the Mopidy source with a potential version override
     MOPIDY_SOURCE="/src/mopidy" \
-    # Bugfix pin pygobject==3.50.0 to resolve Mopidy dependency conflict with pygobject (see pyproject.toml)
-    # This prevents pip from trying to install a newer, incompatible version.
-    && echo "pygobject==3.50.0" > /src/constraints.txt \
+    # CHANGED: Cleared constraints. 
+    # Mopidy 4 needs PyGObject >= 3.50. Trixie provides the environment to build this.
+    # We let pip resolve the best version automatically.
+    && echo "" > /src/constraints.txt \
     # --- Build ALL packages and dependencies as wheels in a single step ---
-    # We use 'pip wheel' to build .whl files from the local source directories
-    # and download wheels for all other dependencies.
+    # We use 'pip wheel' to build .whl files from the local source directories.
     && python3 -m pip wheel \
         --no-cache-dir \
         --wheel-dir=/wheels \
@@ -248,10 +255,10 @@ RUN \
 ################################################################################
 # Stage 4: Final Release Image
 #
-# This is the final, optimized image. It only contains runtime dependencies
-# and copies pre-built artifacts from the builder stages.
+# CRITICAL CHANGE: Switched to debian:trixie-slim (Testing).
+# This provides the Python version (3.13+) required by Mopidy 4.0.
 ################################################################################
-FROM python:3.13-slim-bookworm AS release
+FROM debian:trixie-slim AS release
 
 ARG IMG_VERSION
 WORKDIR /
@@ -264,6 +271,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         # For installing pip packages from git
         git \
         # Python and GObject/GStreamer integration
+        python3-full \
+        python3-pip \
+        python3-gi \
+        python3-gst-1.0 \
+        python3-cairo \
         gir1.2-glib-2.0 \
         gir1.2-gstreamer-1.0 \
         gir1.2-gst-plugins-base-1.0 \
@@ -277,21 +289,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         gstreamer1.0-plugins-ugly \
         gstreamer1.0-libav \
         pulseaudio \
-        # Venv module ist in python images schon drin, aber falls wir system tools brauchen:
-        python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Create a portable venv and install packages from local wheels ---
 ENV VENV_PATH=/opt/venv
-# 1. Create a fresh venv IN the final image, allowing it to access system packages.
-#    This is crucial for pygobject/gi to find the system's GStreamer bindings.
+# 1. Create a fresh venv IN the final image.
+# We use --system-site-packages so that if the system provides a recent enough
+# PyGObject, we can use it. However, if our wheel build produced a newer one,
+# pip install below will install it into the venv, taking precedence.
 RUN python3 -m venv --system-site-packages ${VENV_PATH}
 
 # 2. Copy the pre-built wheels from our "wheel factory"
 COPY --from=python-builder /wheels /wheels
 COPY --from=python-builder /src/requirements.txt /wheels/requirements.txt
 
-# 3. Install ALL required packages from the local wheels folder, without network access.
+# 3. Install ALL required packages from the local wheels folder.
+# We use --break-system-packages flag for pip inside the venv just in case,
+# though it's usually only needed for global installs.
 RUN ${VENV_PATH}/bin/pip install --no-index --find-links=/wheels \
     -r /wheels/requirements.txt \
     mopidy \
