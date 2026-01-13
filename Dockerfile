@@ -2,8 +2,6 @@
 # Stage 1: Build GStreamer plugins written in Rust
 #
 # This stage uses a Rust environment to compile the custom GStreamer plugins.
-# We keep using slim-bookworm for Rust to ensure the glibc requirements of the
-# produced binary are low enough to run on Trixie (Forward Compatibility).
 ################################################################################
 FROM rust:slim-bookworm AS rust-builder
 
@@ -28,6 +26,7 @@ RUN printf "I'm building for TARGETPLATFORM=${TARGETPLATFORM}" \
     && printf "Build Image in version: ${IMG_VERSION}"
 
 # Install build dependencies for the Rust plugin
+# Added 'binutils' to provide the 'strip' command for size optimization
 RUN apt-get update && apt-get install -yq --no-install-recommends \
         build-essential \
         cmake \
@@ -35,13 +34,13 @@ RUN apt-get update && apt-get install -yq --no-install-recommends \
         jq \
         git \
         patch \
+        binutils \
         libgstreamer-plugins-base1.0-dev \
         libgstreamer1.0-dev \
         libcsound64-dev \
         libclang-dev \
         libpango1.0-dev  \
         libdav1d-dev \
-        # libgtk-4-dev \ Only in bookworm/trixie
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/gst-plugins-rs
@@ -73,7 +72,7 @@ WORKDIR /usr/src/gst-plugins-rs
 # RUN sed -i 's/librespot = { version = "0.4", default-features = false }/librespot = { version = "0.4.2", default-features = false }/g' audio/spotify/Cargo.toml
 
 # We currently require a forked version of gstreamer-spotify plugin which supports token-based login
-# UPDATED: Using specific commit hash 3aab0473 which includes librespot 0.8.0 support
+# Using specific commit hash 3aab0473 which includes librespot 0.8.0 support
 RUN GST_PLUGINS_RS_TAG="3aab0473" \
     && echo "Selected commit hash for gst-plugins-rs: $GST_PLUGINS_RS_TAG" \
     # - Clone repository of gst-plugins-rs to workdir
@@ -102,6 +101,8 @@ RUN export CSOUND_LIB_DIR="/usr/lib/$(uname -m)-linux-gnu" \
         --package gst-plugin-spotify \
     # Use install command to create directory (-d), copy and print filenames (-v), and set attributes/permissions (-m)
     && install -v -d ${DEST_DIR}/${PLUGINS_DIR} \
+    # OPTIMIZATION: Strip debug symbols from the library to significantly reduce size
+    && strip --strip-all target/release/*.${SO_SUFFIX} \
     && install -v -m 755 target/release/*.${SO_SUFFIX} ${DEST_DIR}/${PLUGINS_DIR} \
     && cargo clean
 
@@ -167,8 +168,8 @@ ARG IMG_VERSION
 
 # Install build-time dependencies needed for Python packages.
 # We include python3-full to ensure venv and all stdlibs are available.
-# We also include development headers (libgirepository1.0-dev) to allow
-# building PyGObject >= 3.50 if the system version is too old.
+# We also include development headers (libgirepository1.0-dev AND 2.0-dev) to allow
+# building PyGObject >= 3.50.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
         git \
@@ -191,6 +192,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ninja-build \
     && rm -rf /var/lib/apt/lists/*
 
+# Create a directory to store all our wheels
 WORKDIR /wheels
 
 # --- Collect all Python sources ---
@@ -264,18 +266,22 @@ ARG IMG_VERSION
 WORKDIR /
 
 # Install only essential runtime packages
+# OPTIMIZATION: 
+# 1. Removed 'python3-full' which includes many unnecessary components (GUI libs, tests).
+#    Replaced with 'python3', 'python3-venv', 'python3-pip'.
+# 2. Removed build/dev tools like 'git' or 'graphviz'.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         sudo \
         dumb-init \
-        graphviz \
-        # For installing pip packages from git
-        git \
-        # Python and GObject/GStreamer integration
-        python3-full \
+        # Python Components
+        python3 \
+        python3-venv \
         python3-pip \
+        # Python GObject bindings (crucial)
         python3-gi \
         python3-gst-1.0 \
         python3-cairo \
+        # GStreamer Core & Plugins
         gir1.2-glib-2.0 \
         gir1.2-gstreamer-1.0 \
         gir1.2-gst-plugins-base-1.0 \
@@ -295,8 +301,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV VENV_PATH=/opt/venv
 # 1. Create a fresh venv IN the final image.
 # We use --system-site-packages so that if the system provides a recent enough
-# PyGObject, we can use it. However, if our wheel build produced a newer one,
-# pip install below will install it into the venv, taking precedence.
+# PyGObject, we can use it.
 RUN python3 -m venv --system-site-packages ${VENV_PATH}
 
 # 2. Copy the pre-built wheels from our "wheel factory"
@@ -304,20 +309,23 @@ COPY --from=python-builder /wheels /wheels
 COPY --from=python-builder /src/requirements.txt /wheels/requirements.txt
 
 # 3. Install ALL required packages from the local wheels folder.
-# We use --break-system-packages flag for pip inside the venv just in case,
-# though it's usually only needed for global installs.
 RUN ${VENV_PATH}/bin/pip install --no-index --find-links=/wheels \
     -r /wheels/requirements.txt \
     mopidy \
     mopidy-spotify \
     mopidy-iris \
-    && rm -rf /wheels
+    # OPTIMIZATION: Clean up artifacts immediately to save space
+    && rm -rf /wheels \
+    && rm -rf /root/.cache/pip
 
 # Copy the pre-built GStreamer plugin
 COPY --from=rust-builder /target/gst-plugins-rs/ /
 
 # Copy the Iris directory which contains the static web assets
 COPY --from=frontend-builder /iris /iris
+
+# OPTIMIZATION: Remove compiled python cache files to reduce image size
+RUN find ${VENV_PATH} -type d -name "__pycache__" -exec rm -rf {} +
 
 # Set the PATH to use the virtual environment
 ENV PATH="${VENV_PATH}/bin:$PATH"
