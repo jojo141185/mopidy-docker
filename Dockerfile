@@ -212,7 +212,7 @@ RUN \
         echo "Invalid version info for Mopidy: $IMG_VERSION" && exit 1; \
     fi \
     && echo "Cloning Mopidy tag: $MOPIDY_BRANCH_OR_TAG" \
-    && git clone --depth 1 --single-branch -b ${MOPIDY_BRANCH_OR_TAG} https://github.com/mopidy/mopidy.git /src/mopidy
+    && git clone --single-branch -b ${MOPIDY_BRANCH_OR_TAG} https://github.com/mopidy/mopidy.git /src/mopidy
 
 # --- Mopidy-Spotify source ---
 RUN \
@@ -227,7 +227,7 @@ RUN \
         echo "Invalid version info for Mopidy-Spotify: $IMG_VERSION" && exit 1; \
     fi \
     && echo "Cloning Mopidy-Spotify tag: $MOPSPOT_BRANCH_OR_TAG" \
-    && git clone --depth 1 --single-branch -b ${MOPSPOT_BRANCH_OR_TAG} https://github.com/mopidy/mopidy-spotify.git /src/mopidy-spotify
+    && git clone --single-branch -b ${MOPSPOT_BRANCH_OR_TAG} https://github.com/mopidy/mopidy-spotify.git /src/mopidy-spotify
 
 # --- Iris source ---
 COPY --from=frontend-builder /iris /src/iris
@@ -286,7 +286,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         gir1.2-gstreamer-1.0 \
         gir1.2-gst-plugins-base-1.0 \
         gir1.2-gst-plugins-bad-1.0 \
-        # Audio & GStreamer Plugins
         gstreamer1.0-pulseaudio \
         gstreamer1.0-alsa \
         gstreamer1.0-tools \
