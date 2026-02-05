@@ -68,11 +68,9 @@ WORKDIR /usr/src/gst-plugins-rs
 # 	--branch ${GST_PLUGINS_RS_TAG} \
 # 	https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs.git ./
 #
-# # - EXPERIMENTAL: For gstreamer-spotify set upgraded version number of dependency librespot to 0.4.2 
-# RUN sed -i 's/librespot = { version = "0.4", default-features = false }/librespot = { version = "0.4.2", default-features = false }/g' audio/spotify/Cargo.toml
 
-# We currently require a forked version of gstreamer-spotify plugin which supports token-based login
-# Using specific commit hash 3aab0473 which includes librespot 0.8.0 support
+# Use forked version of gstreamer-spotify plugin from Nick Steel with better logging support. Using specific commit hash 3aab0473
+# Waiting for https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs/-/merge_requests/1877 to be merged.
 RUN GST_PLUGINS_RS_TAG="3aab0473" \
     && echo "Selected commit hash for gst-plugins-rs: $GST_PLUGINS_RS_TAG" \
     # - Clone repository of gst-plugins-rs to workdir
@@ -212,7 +210,31 @@ RUN \
         echo "Invalid version info for Mopidy: $IMG_VERSION" && exit 1; \
     fi \
     && echo "Cloning Mopidy tag: $MOPIDY_BRANCH_OR_TAG" \
-    && git clone --single-branch -b ${MOPIDY_BRANCH_OR_TAG} https://github.com/mopidy/mopidy.git /src/mopidy
+    && git clone --single-branch -b ${MOPIDY_BRANCH_OR_TAG} https://github.com/mopidy/mopidy.git /src/mopidy \
+    && if [ "$IMG_VERSION" = "release" ]; then \
+        # -------------------------------------------------------------------------
+        # FIX: GStreamer 1.24+ Compatibility Patch (Manual Sed for v3.4.2)
+        #
+        # Mopidy v3.4.2 uses older code than the 'develop' branch.
+        # Issue: GStreamer 1.24+ returns a StructureWrapper which lacks .get_name()
+        # and .to_string().
+        # Fix: We use Python's builtin str() function to convert the object to string,
+        # then split at the comma to get the MIME type.
+        # -------------------------------------------------------------
+        echo "Applying Patch for GStreamer 1.24 compatibility (Manual Sed)..." \
+        # Fix 1: Line ~224 in v3.4.2 audio/scan.py
+        # Replaces: mime = msg.get_structure().get_value("caps").get_name()
+        # With:     mime = str(msg.get_structure().get_value("caps")).split(",")[0]
+        && sed -i 's/mime = msg.get_structure().get_value("caps").get_name()/mime = str(msg.get_structure().get_value("caps")).split(",")[0]/' /src/mopidy/mopidy/audio/scan.py \
+        # Fix 2: Line ~233 in v3.4.2 audio/scan.py (inside error handling)
+        # Replaces: mime = caps.get_structure(0).get_name()
+        # With:     mime = str(caps.get_structure(0)).split(",")[0]
+        && sed -i 's/mime = caps.get_structure(0).get_name()/mime = str(caps.get_structure(0)).split(",")[0]/' /src/mopidy/mopidy/audio/scan.py; \
+        # -------------------------------------------------------------
+        # FIX END
+        # -------------------------------------------------------------------------
+    fi \
+    && cd /wheels
 
 # --- Mopidy-Spotify source ---
 RUN \
@@ -294,6 +316,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         gstreamer1.0-plugins-ugly \
         gstreamer1.0-libav \
         pulseaudio \
+        # Add git to install Mopidy extensions from repositories if needed
+        git \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Create a portable venv and install packages from local wheels ---
