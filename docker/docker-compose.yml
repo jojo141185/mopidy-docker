@@ -29,10 +29,10 @@ services:
             #- './media:/media:ro'
             
             # Store mopidy library and images on host (persistent)
-            #- './local:$HOME/local'
+            #- './local:${HOME}/local'
             
             # Keep spotify credetnials (persistent)
-            #- './.spotify:$HOME/spotify'
+            #- './.spotify:${HOME}/spotify'
 
             ## Host Audio Support
             # --- ALSA ---
@@ -41,24 +41,29 @@ services:
             #- /etc/asound.conf:/etc/asound.conf
             #- /usr/share/alsa:/usr/share/alsa
 
-            # --- PulseAudio ---
+            # --- PulseAudio / PipeWire ---
             # Mopidy Config: [audio] output=pulsesink
-            # PulseAudio config (path should match with PUID)
-            - $XDG_RUNTIME_DIR/pulse/native:/tmp/pulseaudio.socket  # socket
+            # We use absolute paths to remain independent of the shell's XDG_RUNTIME_DIR variable.
+            # 1. The Socket
+            - '/run/user/${HOST_UID:-1000}/pulse/native:/tmp/pulseaudio.socket:ro'
+            # 2. The Cookie (Auth)
+            - '${PULSE_COOKIE_PATH:-~/.config/pulse/cookie}:/tmp/pulseaudio.cookie:ro'
         ports:
             - '6600:6600'   # JSON-RPC API and MPD protocol
             - '6680:6680'   # HTTP WebUI
             
-        image: 'jojo141185/mopidy:latest'   # ImageName:Version
+        image: 'jojo141185/mopidy:release'   # ImageName:Version
         
         environment: 
             # Set mopidy user and audio group id to match host's specific permissions
-            - PUID=1000
-            - PGID=29
+            - PUID=${HOST_UID:-1000}
+            - PGID=${HOST_GID:-29}
 
-            # PulseAudio server socket for communication (path should match with PUID)
+            # PulseAudio server and cookie
+            # Points to the socket inside the container
             - PULSE_SERVER=unix:/tmp/pulseaudio.socket
-            #- PULSE_COOKIE=/tmp/pulseaudio.cookie  # (optional)
+            # Points to the cookie inside the container
+            - PULSE_COOKIE=/tmp/pulseaudio.cookie
             
             # Install additional pip packages
             #- PIP_PACKAGES=Mopidy-TuneIn Mopidy-Youtube yt-dlp
