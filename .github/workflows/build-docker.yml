@@ -196,6 +196,7 @@ jobs:
           sudo dd if=/dev/zero of=/mnt/swapfile bs=1M count=1
           sudo chmod 600 /mnt/swapfile
           sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
 
       # Hack to fix Errors on arm/v7 and linux/386
       # Work around for qemu bug on 32bit systems caused during rust compilation (https://github.com/JonasAlfredsson/docker-on-tmpfs?tab=readme-ov-file)
