@@ -325,7 +325,10 @@ ENV VENV_PATH=/opt/venv
 # 1. Create a fresh venv IN the final image.
 # We use --system-site-packages so that if the system provides a recent enough
 # PyGObject, we can use it.
-RUN python3 -m venv --system-site-packages ${VENV_PATH}
+# FIX: Pin setuptools < 82.0.0 (released Feb 2026). Version 82.0.0 removed the 
+# 'pkg_resources' module, which is still required by Mopidy and many extensions.
+RUN python3 -m venv --system-site-packages ${VENV_PATH} \
+    && ${VENV_PATH}/bin/pip install "setuptools<82.0.0"
 
 # 2. Copy the pre-built wheels from our "wheel factory"
 COPY --from=python-builder /wheels /wheels
